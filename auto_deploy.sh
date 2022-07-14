@@ -92,26 +92,26 @@ if [ ${OS} == "Linux" ];then
     case $ID in
         debian|ubuntu|devuan)
             read -p "是否运行基础配置(换源)？默认为：no. Enter [yes/no]：" is_Basics
-			if [[ "$is_Basics" == 'yes' ]];then
-			    run_function "ubuntu_Basics"
-			fi
-            ;;
+            if [[ "$is_Basics" == 'yes' ]];then
+                run_function "ubuntu_Basics"
+            fi
+        ;;
         centos|fedora|rhel)
             yumdnf="yum"
-			c_version="7"
+            c_version="7"
             if test "$(echo "$VERSION_ID >= 22" | bc)" -ne 0;
             then
                 yumdnf="dnf"
-				c_version="8"
+                c_version="8"
             fi
             read -p "是否运行基础配置(换源)？默认为：no. Enter [yes/no]：" is_Basics
-			if [[ "$is_Basics" == 'yes' ]];then
-			    run_function "centos_Basics"
-			fi
-            ;;
+            if [[ "$is_Basics" == 'yes' ]];then
+                run_function "centos_Basics"
+            fi
+        ;;
         *)
             exit 1
-            ;;
+        ;;
     esac
 else
     echo "Other OS: ${OS}"
