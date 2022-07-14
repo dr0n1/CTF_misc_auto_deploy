@@ -14,3 +14,16 @@
 
 1：ubuntu</br>
 2：centos</br>
+
+
+# 使用
+
+本脚本可重复运行安装
+
+方法一：
+chmod 777 auto_deploy.sh
+./auto_deploy.sh
+
+
+方法二：
+curl
