@@ -60,10 +60,10 @@ function install_docker-compose(){
  
 
 function ubuntu_Basics(){
-  echo -e "deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial main restricted\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-updates main restricted\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial universe\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-updates universe\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial multiverse\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-updates multiverse\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-backports main restricted universe multiverse\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-security main restricted\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-security universe\ndeb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ xenial-security multiverse" > /etc/apt/sources.list
+  echo -e "deb https://mirrors.ustc.edu.cn/ubuntu/ kinetic main restricted universe multiverse\ndeb-src https://mirrors.ustc.edu.cn/ubuntu/ kinetic main restricted universe multiverse\ndeb https://mirrors.ustc.edu.cn/ubuntu/ kinetic-security main restricted universe multiverse\ndeb-src https://mirrors.ustc.edu.cn/ubuntu/ kinetic-security main restricted universe multiverse\ndeb https://mirrors.ustc.edu.cn/ubuntu/ kinetic-updates main restricted universe multiverse\ndeb-src https://mirrors.ustc.edu.cn/ubuntu/ kinetic-updates main restricted universe multiverse\ndeb https://mirrors.ustc.edu.cn/ubuntu/ kinetic-backports main restricted universe multiverse\ndeb-src https://mirrors.ustc.edu.cn/ubuntu/ kinetic-backports main restricted universe multiverse" > /etc/apt/sources.list
   apt-get clean
   apt-get update
-  apt-get install wget net-tools vim openssl -y
+  apt-get install wget curl net-tools vim openssl -y
 }
 
 
