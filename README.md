@@ -13,7 +13,7 @@
 # 支持的系统
 
 1：ubuntu</br>
-2：centos</br>
+2：centos7/8</br>
 
 
 # 使用
