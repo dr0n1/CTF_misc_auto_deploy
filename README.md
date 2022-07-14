@@ -26,5 +26,5 @@ chmod 777 auto_deploy.sh</br>
 ./auto_deploy.sh
 
 
-方法二：
-curl
+方法二：</br>
+bash <(curl -s https://raw.githubusercontent.com/lewiserii/auto_deploy/main/auto_deploy.sh)
