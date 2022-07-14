@@ -19,9 +19,10 @@
 # 使用
 
 本脚本可重复运行安装
+日志位置：/var/log/auto_deploy.log
 
 方法一：
-chmod 777 auto_deploy.sh
+chmod 777 auto_deploy.sh</br>
 ./auto_deploy.sh
 
 
