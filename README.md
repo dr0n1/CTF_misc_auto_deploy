@@ -10,9 +10,9 @@
 3：docker-compose</br>
 
 
-# 支持的系统
+# 支持的系统（已测试）
 
-1：ubuntu</br>
+1：ubuntu20.04 later</br>
 2：centos7/8</br>
 
 
