@@ -28,11 +28,11 @@ chmod 777 auto_deploy.sh</br>
 
 ```shell
 usage: ./auto_deploy.sh [mode]
-        basics		   基础配置(换源，root，ssh)
-        docker		   安装docker
-        docker-compoer           安装docker-compose
-        python		   安装python
-        all			   执行上述全部命令
+        basics		    基础配置(换源，root，ssh)
+        docker		    安装docker
+        docker-compoer  安装docker-compose
+        python		    安装python
+        all			    执行上述全部命令
 ```
 
 方法二：</br>
