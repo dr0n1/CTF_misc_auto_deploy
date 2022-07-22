@@ -28,11 +28,11 @@ chmod 777 auto_deploy.sh</br>
 
 ```shell
 usage: ./auto_deploy.sh [mode]
-        basics		    基础配置(换源，root，ssh)
-        docker		    安装docker
-        docker-compoer  安装docker-compose
-        python		    安装python
-        all			    执行上述全部命令
+        basics              基础配置(换源，root，ssh)
+        docker              安装docker
+        docker-compoer      安装docker-compose
+        python              安装python
+        all                 执行上述全部命令
 ```
 
 方法二：</br>
@@ -40,6 +40,6 @@ bash <(curl -s https://raw.githubusercontent.com/lewiserii/auto_deploy/main/auto
 
 
 # 更新日志
-V1.0：第一代脚本</br>
-V1.1：增加python安装模块</br>
+V1.0: 第一代脚本</br>
+V1.1: 增加python安装模块</br>
 V1.2: 优化安装逻辑等
