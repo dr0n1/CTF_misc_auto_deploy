@@ -63,6 +63,7 @@ usage: ./auto_deploy.sh [mode]
         docker              安装docker
         docker-compoer      安装docker-compose
         go                  安装golang
+        java                安装java
         misc-tools          安装misc工具
 ```
 
