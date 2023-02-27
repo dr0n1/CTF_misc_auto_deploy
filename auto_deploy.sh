@@ -290,6 +290,10 @@ function install_ctf_misc_tools() {
     	done
     	list_supported_tools
 	fi
+
+	if [ ! -d "$misc_tools_dir" ]; then
+  		mkdir -p "$misc_tools_dir"
+	fi
 }
 
 
@@ -739,7 +743,7 @@ function install_misc_stegpy(){
 				info "pip3安装完成"
 			fi
 		fi
-		if pip3 list | grep -q "stegpy"; then
+		if pip3 list | grep "stegpy" &> /dev/null ; then
     		info "stegpy已安装"
 		else
     		info "开始安装stegpy"
