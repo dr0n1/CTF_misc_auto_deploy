@@ -10,7 +10,7 @@
 2：安装docker</br>
 3：安装docker-compose</br>
 4：安装golang</br>
-5：安装java
+5：安装java</br>
 6：安装linux下的部分misc工具，具体如下</br>
 
 ```text
