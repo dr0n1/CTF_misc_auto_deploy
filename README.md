@@ -10,7 +10,8 @@
 2：安装docker</br>
 3：安装docker-compose</br>
 4：安装golang</br>
-5：安装部分linux下的misc工具，具体如下</br>
+5：安装java
+6：安装linux下的部分misc工具，具体如下</br>
 
 ```text
 binwalk
@@ -45,6 +46,7 @@ zsteg
 1：ubuntu16.04/18.04/20.04/22.04</br>
 2：~~centos7/8~~(只有部分功能适配了centos)</br>
 
+推荐ubuntu20</br>
 
 # 使用
 
@@ -79,3 +81,8 @@ V1.2: 优化安装逻辑等</br>
 V1.3：移除python，新增golang和java</br>
 V2.1：增加CTF-Misc部分工具的安装</br>
 V2.2：优化可重复运行脚本逻辑</br>
+
+
+# 后续计划 #
+
+1：计划增加web系列工具
