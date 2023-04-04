@@ -375,6 +375,11 @@ function install_misc_stegseek(){
 			wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb
 			apt install -y ./stegseek_0.6-1.deb
 			rm -rf stegseek_0.6-1.deb
+			wget https://gitee.com/lewiserii/rockyou.txt/releases/download/rockyou/rockyou.zip
+			unzip rockyou.zip
+			rm -rf rockyou.zip
+			mkdir /usr/share/wordlists
+			mv rockyou.txt /usr/share/wordlists/rockyou.txt
 			info "stegseek安装结束"
 		fi
     elif [[ $os_type == "CentOS" ]]; then
@@ -606,13 +611,19 @@ function install_misc_gaps(){
 }
 
 function install_misc_volatility2(){
-	if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ];then
+	if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &> /dev/null;then
 		info "volatility2已安装"
 	else
 		info "开始安装volatility2"
 		git clone https://github.com/volatilityfoundation/volatility $misc_tools_dir/volatility2
 
-		if ! command -v pip2 &> /dev/null ;then
+		if ! command -v python2 &> /dev/null; then
+			info "开始安装python2"
+			apt install -y  python2
+			info "python2安装结束"
+		fi
+
+		if ! command -v pip2 &> /dev/null; then
 			info "开始安装pip2"
 			wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
 			python2 get-pip.py
@@ -620,7 +631,7 @@ function install_misc_volatility2(){
 			info "pip2安装结束"
 		fi
 
-		apt-get install -y python-dev
+		apt-get install -y python-dev gcc
 
 		if ! python2 -c "import setuptools" &> /dev/null; then
         	pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools
