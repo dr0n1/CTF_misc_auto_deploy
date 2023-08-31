@@ -312,6 +312,17 @@ function list_supported_tools {
 }
 
 function install_misctool_base(){
+	if [[ $os_type == "CentOS" ]]; then
+		if ! command -v git &> /dev/null; then
+			$yumdnf install -y git
+		fi
+	else
+		if ! command -v git &> /dev/null; then
+			apt-get install -y git
+		fi
+    fi
+
+
 	if ! command -v python2 &> /dev/null; then
 		info "开始安装python2"
 		apt install -y  python2
@@ -339,7 +350,9 @@ function install_misctool_base(){
 		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple pillow
 	fi
 
-
+	if ! python2 -c "import enum" &> /dev/null; then
+		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple enum
+	fi
 
 
 	if  ! command -v pip3 &> /dev/null ;then
@@ -374,6 +387,10 @@ function install_misctool_base(){
 
 	if ! python3 -c "import PIL" &> /dev/null; then
     	pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pillow
+	fi
+
+	if ! python3 -c "import pyshark" &> /dev/null; then
+    	pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pyshark
 	fi
 }
 
@@ -832,6 +849,43 @@ function install_misc_sstv(){
 				info "sstv安装失败"
 				rm -rf $misc_tools_dir/sstv
 			fi
+		fi
+    elif [[ $os_type == "CentOS" ]]; then
+		info "暂未适配CentOS"
+    else
+        info "暂不支持的操作系统"
+    fi
+}
+
+function install_misc_usb-mouse-pcap-visualizer(){
+	if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ];then
+		info "USB-Mouse-Pcap-Visualizer脚本已存在"
+	else
+		info "开始下载USB-Mouse-Pcap-Visualizer脚本"
+		git clone https://github.com/WangYihang/USB-Mouse-Pcap-Visualizer $misc_tools_dir/USB-Mouse-Pcap-Visualizer
+		info "USB-Mouse-Pcap-Visualizer脚本已下载"
+	fi
+}
+
+
+function install_misc_usbkeyboarddatahacker(){
+	if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ];then
+		info "UsbKeyboardDataHacker脚本已存在"
+	else
+		info "开始下载UsbKeyboardDataHacker脚本"
+		git clone https://github.com/WangYihang/UsbKeyboardDataHacker $misc_tools_dir/UsbKeyboardDataHacker
+		info "UsbKeyboardDataHacker脚本已下载"
+	fi
+}
+
+function install_misc_wireshark(){
+    if [[ $os_type == "Ubuntu" ]]; then
+		if command -v wireshark &> /dev/null ;then
+			info "wireshark已安装"
+		else
+			info "开始安装wireshark"
+			apt install -y wireshark tshark
+			info "wireshark安装完成"
 		fi
     elif [[ $os_type == "CentOS" ]]; then
 		info "暂未适配CentOS"

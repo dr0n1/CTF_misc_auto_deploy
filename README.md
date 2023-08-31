@@ -1,7 +1,7 @@
 # auto_deploy
 
 一个自动部署Misc工具的~~轻量~~sh脚本</br>
-闲的无聊随便写的小玩意（部分代码由chatgpt完成）
+闲的无聊随便写的小玩意
 
 
 # 目前支持的功能
@@ -33,9 +33,12 @@ sstv
 steghide
 stegpy
 stegseek
+usb-mouse-pcap-visualizer
+usbkeyboarddatahacker
 volatility2
 volatility3
 webp
+wireshark
 zsteg
 ```
 
