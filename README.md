@@ -64,7 +64,7 @@ chmod 777 auto_deploy.sh</br>
 usage: ./auto_deploy.sh [mode]
         basics              基础配置(换源，root，ssh)
         docker              安装docker
-        docker-compoer      安装docker-compose
+        docker-compose      安装docker-compose
         go                  安装golang
         java                安装java
         misc-tools          安装misc工具
