@@ -1,6 +1,6 @@
 #!/bin/bash
 # Author: lewiserii
-# Version：2.3 beta
+# Version：2.4 beta
 
 # root运行
 [ $(id -u) != "0" ] && {
@@ -330,7 +330,7 @@ function install_misctool_base() {
 	fi
 
 	if ! python2 -c "import matplotlib" &>/dev/null; then
-		apt-get install python-tk
+		apt-get install -y python-tk
 		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple matplotlib
 	fi
 
@@ -868,6 +868,43 @@ function install_misc_wireshark() {
 			info "开始安装wireshark"
 			apt install -y wireshark tshark
 			info "wireshark安装完成"
+		fi
+	elif [[ $os_type == "CentOS" ]]; then
+		info "暂未适配CentOS"
+	else
+		info "暂不支持的操作系统"
+	fi
+}
+
+function install_misc_pycdc() {
+	if [[ $os_type == "Ubuntu" ]]; then
+		if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+			info "pycdc已存在"
+		else
+			info "开始下载pycdc脚本"
+			git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc
+			if ! command -v cmake &>/dev/null; then
+				apt install -y cmake
+			fi
+			cd $misc_tools_dir/pycdc && cmake . && make && cd -
+			info "pycdc已安装"
+		fi
+	elif [[ $os_type == "CentOS" ]]; then
+		info "暂未适配CentOS"
+	else
+		info "暂不支持的操作系统"
+	fi
+}
+
+function install_misc_stegosaurus() {
+	if [[ $os_type == "Ubuntu" ]]; then
+		if command -v stegosaurus &>/dev/null; then
+			info "stegosaurus已存在"
+		else
+			info "开始下载stegosaurus"
+			wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus
+			chmod +x /usr/local/bin/stegosaurus
+			info "stegosaurus已安装"
 		fi
 	elif [[ $os_type == "CentOS" ]]; then
 		info "暂未适配CentOS"
