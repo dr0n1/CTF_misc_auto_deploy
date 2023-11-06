@@ -48,7 +48,7 @@ zsteg
 1：ubuntu16.04/18.04/20.04/22.04</br>
 2：~~centos7/8~~(只有部分功能适配了 centos)</br>
 
-推荐 ubuntu20</br>
+推荐 ubuntu20 加代理运行</br>
 
 # 使用
 
