@@ -56,7 +56,7 @@ zsteg
 工具保存在运行脚本的`misc_tools`目录下</br>
 
 方法一：</br>
-git clone https://github.com/lewiserii/auto_deploy</br>
+git clone https://github.com/dr0n1/auto_deploy</br>
 chmod 777 auto_deploy.sh</br>
 ./auto_deploy.sh [mode]
 
@@ -71,7 +71,7 @@ usage: ./auto_deploy.sh [mode]
 ```
 
 方法二：</br>
-bash <(curl -s https://raw.githubusercontent.com/lewiserii/auto_deploy/main/auto_deploy.sh) [mode]
+bash <(curl -s https://raw.githubusercontent.com/dr0n1/auto_deploy/main/auto_deploy.sh) [mode]
 
 ![](https://lewiserii.oss-cn-hangzhou.aliyuncs.com/auto_deploy/auto_deploy.gif)
 
