@@ -1,8 +1,8 @@
 #!/bin/bash
-# Author: lewiserii
-# Version：2.4 beta
+# Author: dr0n1
+# Version：3.1 beta
+# Email: 1930774374@qq.com
 
-# root运行
 [ $(id -u) != "0" ] && {
 	echo "请用root用户运行"
 	exit 1
@@ -11,99 +11,91 @@
 misc_tools_dir="misc_tools"
 tm=$(date +'%Y%m%d %T')
 COLOR_G="\x1b[0;32m"
+COLOR_R="\x1b[0;31m"
 RESET="\x1b[0m"
 
 function info() {
 	echo -e "${COLOR_G}[$tm] [Info] ${1}${RESET}"
 }
 
-function detecting_system() {
-	# 判断版本
-	OS=$(uname -s)
-	if [ ${OS} == "Linux" ]; then
-		source /etc/os-release
-		case $ID in
-		debian | ubuntu | devuan)
-			os_type="Ubuntu"
-			;;
-		centos | fedora | rhel)
-			yumdnf="yum"
-			c_version="7"
-			if test "$(echo "$VERSION_ID >= 22" | bc)" -ne 0; then
-				yumdnf="dnf"
-				c_version="8"
-			fi
-			os_type="Centos"
-			;;
-		*)
-			exit 1
-			;;
-		esac
-	elif [ ${OS} == "Windows_NT" ]; then
-		os_type="Windows"
-	else
-		os_type="Unknow"
-	fi
+function error() {
+	echo -e "${COLOR_R}[$tm] [Error] ${1}${RESET}"
+	exit 1
 }
+
+# function detecting_system() {
+# 	OS=$(uname -s)
+# 	if [ ${OS} == "Linux" ]; then
+# 		source /etc/os-release
+# 		case $ID in
+# 		debian | ubuntu | devuan)
+# 			os_type="Ubuntu"
+# 			;;
+# 		centos | fedora | rhel)
+# 			yumdnf="yum"
+# 			c_version="7"
+# 			if test "$(echo "$VERSION_ID >= 22" | bc)" -ne 0; then
+# 				yumdnf="dnf"
+# 				c_version="8"
+# 			fi
+# 			os_type="Centos"
+# 			;;
+# 		*)
+# 			exit 1
+# 			;;
+# 		esac
+# 	elif [ ${OS} == "Windows_NT" ]; then
+# 		os_type="Windows"
+# 	else
+# 		os_type="Unknow"
+# 	fi
+# }
 
 function install_docker() {
 	if command -v docker &>/dev/null; then
-		info "Docker已安装"
-		exit 0
-	fi
-
-	if [[ $os_type == "Ubuntu" ]]; then
-		info "1.卸载旧版本docker"
-		apt-get remove docker docker-engine docker-ce docker.io -y
-		apt-get update
-		info "卸载完毕"
-
-		info "2.开始安装docker"
-		ubuntu_version=$(lsb_release -r | awk '{print substr($2,1,2)}')
-		if [ $ubuntu_version -le 16 ]; then
+		read -p "Docker已经安装，是否卸载并安装最新版本？ （可能发生某些意外） 默认为：no. Enter [yes/no]: " answer
+		if [[ $answer == "Y" || $answer == "y" || $answer == "YES" || $answer == "yes" ]]; then
+			info "1.卸载旧版本 Docker..."
+			apt-get remove docker docker-engine docker-ce docker.io -y
 			apt-get update
-			apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-			curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-			add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-			apt-get update
-			apt-get install -y docker-ce
+			info "卸载完毕"
 		else
-			curl -sSL https://get.daocloud.io/docker | sh
-			if [ $? -ne 0 ]; then
-				curl -fLsS https://get.docker.com/ | sh
-			fi
+			info "取消安装最新版本 Docker"
+			exit 0
 		fi
-		info "Docker安装完毕"
-
-		info "3.启动 Docker CE..."
-		systemctl enable docker
-		systemctl start docker
-		info "docker启动完毕"
-
-		info "4.检测docker信息"
-		docker info
-		info "docker检测完毕"
-	elif [[ $os_type == "CentOS" ]]; then
-		info "1.卸载旧版本docker"
-		yum remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
-		info "卸载完毕"
-
-		info "2.开始安装docker"
-		curl -sSL https://get.daocloud.io/docker | sh
-		info "Docker安装完毕"
-
-		info "3.启动 Docker CE..."
-		systemctl enable docker
-		systemctl start docker
-		info "docker启动完毕"
-
-		info "4.检测docker信息"
-		docker info
-		info "docker检测完毕"
-	else
-		info "暂不支持的操作系统"
 	fi
 
+	info "2.开始安装 Docker..."
+	ubuntu_version=$(lsb_release -r | awk '{print substr($2,1,2)}')
+	if [ $ubuntu_version -le 16 ]; then
+		apt-get update
+		apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+		curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+		add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+		apt-get update
+		apt-get install -y docker-ce
+	else
+		curl -sSL https://get.daocloud.io/docker | sh
+		if [ $? -ne 0 ]; then
+			curl -fLsS https://get.docker.com/ | sh
+		fi
+	fi
+
+	if ! command -v docker &>/dev/null; then
+		error "可能由于网络原因或其他未知原因导致Docker安装失败，请检查后重试"
+		exit 1
+	fi
+
+	info "Docker安装完毕"
+
+	info "3.启动 Docker CE..."
+	systemctl enable docker
+	systemctl start docker
+	info "docker启动完毕"
+
+	info "4.检测 Docker 信息"
+	docker info
+	info "docker检测完毕"
 }
 
 function install_docker-compose() {
@@ -113,9 +105,15 @@ function install_docker-compose() {
 	fi
 
 	info "1.安装docker-compose"
-	#curl -L https://get.daocloud.io/docker/compose/releases/download/v2.6.1/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+	# curl -L https://get.daocloud.io/docker/compose/releases/download/v2.6.1/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
 	curl -L https://github.com/docker/compose/releases/download/v2.6.1/docker-compose-$(uname -s)-$(uname -m) >/usr/local/bin/docker-compose
 	chmod +x /usr/local/bin/docker-compose
+
+	if ! command -v docker-compose &>/dev/null; then
+		error "可能由于网络原因或其他未知原因导致docker-compose安装失败，请检查后重试"
+		exit 1
+	fi
+
 	info "docker-compose安装完毕"
 
 	info "2.验证docker-compose是否安装成功..."
@@ -124,98 +122,90 @@ function install_docker-compose() {
 }
 
 function install_basics() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if ! grep -q "mirrors.ustc.edu.cn" /etc/apt/sources.list; then
-			info "开始获取对应网络源(USTC)"
-			rm -rf /var/cache/apt/archives/lock* && rm -rf /var/lib/dpkg/lock* && rm -rf /var/lib/apt/lists/lock*
-			apt update 2>/dev/null #适配ubuntu16
-			apt install -y curl    #适配ubuntu16
-			ubuntu_lsb=$(lsb_release -a 2>/dev/null | awk -F " " '{if ( $1	~ /Codename/ ){ print $2 } }')
-			curl "https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-"$ubuntu_lsb -o /etc/apt/sources.list
-			info "源获取完毕"
-		else
-			info "已经获取对应网络源(USTC)"
-		fi
-
-		info "开始更新源"
-		apt-get clean
-		apt-get update 2>/dev/null
-		apt-get install wget net-tools openssl -y
-		info "更新完毕"
-
-		if ! dpkg -s vim &>/dev/null || dpkg -s vim-common &>/dev/null; then
-			info "开始解决ubuntu上下键变成ABCD问题"
-			apt-get remove vim-common -y
-			apt-get install vim -y
-			info "ubuntu vim问题解决完毕"
-		else
-			info "ubuntu vim异常问题已经解决"
-		fi
-
-		info "开始配置root用户登录系统"
-		if ! grep -q "greeter-show-manual-login=true" /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf; then
-			echo "greeter-show-manual-login=true" >>/usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf
-		fi
-		if ! sed -n '3p' /etc/pam.d/gdm-autologin | grep -q '^#'; then
-			sed -i '3s/^/#/' /etc/pam.d/gdm-autologin
-		fi
-		if ! sed -n '3p' /etc/pam.d/gdm-password | grep -q '^#'; then
-			sed -i '3s/^/#/' /etc/pam.d/gdm-password
-		fi
-		if tail -n 4 /root/.profile | grep -q "mesg"; then
-			sed -i '/mesg/d' /root/.profile
-			echo 'tty -s && mesg n || true' >>/root/.profile
-			echo 'mesg n || true' >>/root/.profile
-		else
-			echo 'tty -s && mesg n || true' >>/root/.profile
-			echo 'mesg n || true' >>/root/.profile
-		fi
-		info "root用户登录配置完毕"
-
-		info "开始配置ssh"
-		apt remove openssh-client -y
-		apt install openssh-server openssh-client ssh -y
-		sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
-		sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-		service sshd restart
-		info "ssh配置完毕"
-	elif [[ $os_type == "CentOS" ]]; then
-		info "1.获取网络源(aliyun+huaweicloud)"
-		$yumdnf -y install wget
-		rm -rf /etc/yum.repos.d/*
-		wget -O /etc/yum.repos.d/CentOS-Base-ali.repo http://mirrors.aliyun.com/repo/Centos-$c_version.repo
-		wget -O /etc/yum.repos.d/CentOS-Base-huawei.repo https://repo.huaweicloud.com/repository/conf/CentOS-$c_version-reg.repo
-
-		info "2.更新"
-		$yumdnf clean all
-		$yumdnf makecache
-		$yumdnf update
-		$yumdnf -y install git wget bash* net-tools bind-utils vim wget
+	if ! grep -q "mirrors.ustc.edu.cn" /etc/apt/sources.list; then
+		info "开始获取对应网络源(USTC)"
+		rm -rf /var/cache/apt/archives/lock* && rm -rf /var/lib/dpkg/lock* && rm -rf /var/lib/apt/lists/lock*
+		apt update 2>/dev/null #适配ubuntu16
+		apt install -y curl    #适配ubuntu16
+		ubuntu_lsb=$(lsb_release -a 2>/dev/null | awk -F " " '{if ( $1	~ /Codename/ ){ print $2 } }')
+		curl "https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-"$ubuntu_lsb -o /etc/apt/sources.list
+		info "ustc源获取完毕"
 	else
-		info "暂不支持的操作系统"
+		info "已经获取对应网络源(USTC)"
 	fi
+
+	info "开始更新源"
+	apt-get clean
+	apt-get update 2>/dev/null
+	apt-get install wget net-tools openssl -y
+	info "更新完毕"
+
+	info "开始解决ubuntu vim上下键变成ABCD问题"
+	apt-get remove vim-common -y
+	apt-get install vim -y
+	info "ubuntu vim问题解决完毕"
+
+	info "开始配置root用户登录系统"
+	if ! grep -q "greeter-show-manual-login=true" /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf; then
+		echo "greeter-show-manual-login=true" >>/usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf
+	fi
+	if ! sed -n '3p' /etc/pam.d/gdm-autologin | grep -q '^#'; then
+		sed -i '3s/^/#/' /etc/pam.d/gdm-autologin
+	fi
+	if ! sed -n '3p' /etc/pam.d/gdm-password | grep -q '^#'; then
+		sed -i '3s/^/#/' /etc/pam.d/gdm-password
+	fi
+	if ! grep -q "mesg" /root/.profile; then
+		echo 'tty -s && mesg n || true' >>/root/.profile
+		echo 'mesg n || true' >>/root/.profile
+	else
+		sed -i '/mesg n || true/d' /root/.profile
+		echo 'tty -s && mesg n || true' >>/root/.profile
+		echo 'mesg n || true' >>/root/.profile
+	fi
+	info "root用户登录配置完毕"
+
+	info "开始配置ssh"
+	apt remove openssh-client -y
+	apt install openssh-server openssh-client ssh -y
+	sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
+	sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+	service sshd restart
+	info "ssh配置完毕"
 
 }
 
 function install_go() {
+	go_version='1.14.2'
+
 	if command -v go &>/dev/null; then
-		info "golang已安装"
+		go_version=$(go version | awk '{print $3}')
+		info "${go_version}已安装"
 		exit 0
 	fi
 
-	info "开始下载golang"
-	wget -c https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
+	read -p "请输入要安装的Go版本: (e.g. 1.20.4 /默认为${go_version})" input_go_version
+	if [[ $input_go_version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)*$ ]]; then
+		go_version=$input_go_version
+	fi
+
+	info "开始下载golang ${go_version}"
+	wget -c https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
+
+	if [ $? -ne 0 ]; then
+		error "golang ${go_version}下载失败，请检查版本号或网络后重试"
+	fi
 
 	info "创建软连接"
 	ln -s /usr/local/go/bin/* /usr/bin/
 
 	go version >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
-		info "go安装失败"
+		error "go ${go_version}安装失败"
 	else
-		info "go安装成功"
+		go env -w GOPROXY=https://goproxy.cn
+		info "go ${go_version}安装成功"
 	fi
-	go env -w GOPROXY=https://goproxy.cn
 }
 
 function install_java() {
@@ -230,18 +220,15 @@ function install_java() {
 		fi
 	fi
 
-	if [[ $os_type == "Ubuntu" ]]; then
-		info "开始安装java $java_version"
-		apt-get install -y openjdk-$java_version-jdk
-		info "java $java_version 安装完成"
-	elif [[ $os_type == "CentOS" ]]; then
-		info "开始安装java $java_version"
-		$yumdnf install -y java-$java_version-openjdk
-		info "java $java_version 安装完成"
-	else
-		info "暂不支持的操作系统"
-	fi
+	info "开始安装java $java_version"
+	apt-get install -y openjdk-$java_version-jdk
 
+	java --version >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		error "java安装失败，请检查网络或其他原因后重试"
+	else
+		info "java $java_version 安装完成"
+	fi
 }
 
 function install_ctf_misc_tools() {
@@ -301,15 +288,7 @@ function list_supported_tools {
 }
 
 function install_misctool_base() {
-	if [[ $os_type == "CentOS" ]]; then
-		if ! command -v git &>/dev/null; then
-			$yumdnf install -y git
-		fi
-	else
-		if ! command -v git &>/dev/null; then
-			apt-get install -y git
-		fi
-	fi
+	apt-get install -y git gcc cmake python-dev python3-dev libbz2-dev
 
 	if ! command -v python2 &>/dev/null; then
 		info "开始安装python2"
@@ -409,26 +388,13 @@ function install_misc_foremost() {
 }
 
 function install_misc_cloacked-pixel() {
-	if command -v git &>/dev/null; then
-		if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
-			info "clocked-pixel已安装"
-		else
-			info "开始安装cloacked-pixel"
-			git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel
-			info "cloacked-pixel安装完成"
-		fi
+	if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
+		info "clocked-pixel已安装"
 	else
-		apt install -y git
-		$yumdnf -y install git
-		if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
-			info "clocked-pixel已安装"
-		else
-			info "开始安装cloacked-pixel"
-			git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel
-			info "cloacked-pixel安装完成"
-		fi
+		info "开始安装cloacked-pixel"
+		git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel
+		info "cloacked-pixel安装完成"
 	fi
-
 }
 
 function install_misc_steghide() {
@@ -439,29 +405,28 @@ function install_misc_steghide() {
 		apt install -y steghide
 		info "steghide安装成功"
 	fi
-
 }
 
 function install_misc_stegseek() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v stegseek &>/dev/null; then
-			info "stegseek已安装"
+	if command -v stegseek &>/dev/null; then
+		info "stegseek已安装"
+	else
+		info "开始安装stegseek"
+		wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb
+		apt install -y stegseek_0.6-1.deb
+		rm -rf stegseek_0.6-1.deb
+
+		if [ -f /usr/share/wordlists/rockyou.txt ]; then
+			info "stegseek安装结束"
 		else
-			info "开始安装stegseek"
-			wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb
-			apt install -y ./stegseek_0.6-1.deb
-			rm -rf stegseek_0.6-1.deb
 			wget https://gitee.com/lewiserii/rockyou.txt/releases/download/rockyou/rockyou.zip
 			unzip rockyou.zip
 			rm -rf rockyou.zip
 			mkdir /usr/share/wordlists
 			mv rockyou.txt /usr/share/wordlists/rockyou.txt
-			info "stegseek安装结束"
 		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂不支持Centos系统安装stegseek"
-	else
-		info "暂不支持的操作系统"
+
+		info "stegseek安装结束"
 	fi
 }
 
@@ -476,66 +441,47 @@ function install_misc_f5-steganography() {
 }
 
 function install_misc_zsteg() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v ruby &>/dev/null; then
-			if command -v gem &>/dev/null; then
-				if command -v zsteg &>/dev/null; then
-					info "zsteg已安装"
-				else
-					info "开始安装zsteg"
-					gem install zsteg
-					info "zsteg安装完成"
-				fi
+	if command -v ruby &>/dev/null; then
+		if command -v gem &>/dev/null; then
+			if command -v zsteg &>/dev/null; then
+				info "zsteg已安装"
 			else
-				info "未检测到gem命令，开始安装gem和zsteg"
-				apt instal -y gem
+				info "开始安装zsteg"
 				gem install zsteg
-				info "zsteg和gem安装完成"
+				info "zsteg安装完成"
 			fi
 		else
-			info "未检测到ruby环境，开始安装ruby,gem和zsteg"
-			apt install -y ruby
-			apt install -y gem
+			info "未检测到gem命令，开始安装gem和zsteg"
+			apt instal -y gem
 			gem install zsteg
-			info "zsteg,gem和ruby安装完成"
+			info "zsteg和gem安装完成"
 		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配Centos系统"
 	else
-		info "暂不支持的操作系统"
+		info "未检测到ruby环境，开始安装ruby,gem和zsteg"
+		apt install -y ruby
+		apt install -y gem
+		gem install zsteg
+		info "zsteg,gem和ruby安装完成"
 	fi
 }
 
 function install_misc_extundelete() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v extundelete &>/dev/null; then
-			info "extundelete已安装"
-		else
-			info "开始安装extundelete"
-			apt-get install extundelete
-			info "extundelete安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS系统"
+	if command -v extundelete &>/dev/null; then
+		info "extundelete已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装extundelete"
+		apt-get install -y extundelete
+		info "extundelete安装完成"
 	fi
-
 }
 
 function install_misc_outguess() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v outguess &>/dev/null; then
-			info "outguess已安装"
-		else
-			info "开始安装outguess"
-			apt-get install outguess
-			info "outguess安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS系统"
+	if command -v outguess &>/dev/null; then
+		info "outguess已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装outguess"
+		apt-get install -y outguess
+		info "outguess安装完成"
 	fi
 }
 
@@ -552,96 +498,60 @@ function install_misc_bkcrack() {
 }
 
 function install_misc_gnuplot() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v gnuplot &>/dev/null; then
-			info "gnuplot已安装"
-		else
-			info "开始安装gnuplot"
-			apt install -y gnuplot
-			info "gnuplot安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		if command -v gnuplot &>/dev/null; then
-			info "gnuplot已安装"
-		else
-			info "开始安装gnuplot"
-			$yumdnf install gnuplot
-			info "gnuplot安装完成"
-		fi
+	if command -v gnuplot &>/dev/null; then
+		info "gnuplot已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装gnuplot"
+		apt install -y gnuplot
+		info "gnuplot安装完成"
 	fi
 }
 
 function install_misc_blindwatermark() {
-	if command -v git &>/dev/null; then
-		if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
-			info "BlindWaterMark已安装"
-		else
-			info "开始安装BlindWaterMark"
-			git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark
-			info "BlindWaterMark安装完成"
-		fi
+	if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
+		info "BlindWaterMark已安装"
 	else
-		apt install -y git
-		$yumdnf -y install git
-		if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
-			info "BlindWaterMark已安装"
-		else
-			info "开始安装BlindWaterMark"
-			git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark
-			info "BlindWaterMark安装完成"
-		fi
+		info "开始安装BlindWaterMark"
+		git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark
+		info "BlindWaterMark安装完成"
 	fi
 }
 
 function install_misc_montage() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v montage &>/dev/null; then
-			info "montage已安装"
-		else
-			info "开始安装montage"
-			apt-get install -y graphicsmagick-imagemagick-compat
-			info "montage安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂不支持CentOS系统安装montage"
+	if command -v montage &>/dev/null; then
+		info "montage已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装montage"
+		apt-get install -y graphicsmagick-imagemagick-compat
+		info "montage安装完成"
 	fi
 }
 
 function install_misc_gaps() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v gaps &>/dev/null; then
-			info "gaps已安装"
-		else
-			info "开始安装gaps"
-			git clone https://github.com/nemanja-m/gaps $misc_tools_dir/gaps
-
-			if ! python3 -c "import poetry" &>/dev/null; then
-				pip3 install oct2py --ignore-installed pexpect
-				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple poetry
-			fi
-
-			echo '[[tool.poetry.source]]' >>$misc_tools_dir/gaps/pyproject.toml
-			echo 'name = "tsinghua"' >>$misc_tools_dir/gaps/pyproject.toml
-			echo 'default = true' >>$misc_tools_dir/gaps/pyproject.toml
-			echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple" ' >>$misc_tools_dir/gaps/pyproject.toml
-
-			cd $misc_tools_dir/gaps && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
-			if command -v gaps &>/dev/null; then
-				info "gaps安装成功"
-				rm -rf $misc_tools_dir/gaps
-			else
-				info "gaps安装失败"
-				rm -rf $misc_tools_dir/gaps
-			fi
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂不支持CentOS系统安装gaps"
+	if command -v gaps &>/dev/null; then
+		info "gaps已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装gaps"
+		git clone https://github.com/nemanja-m/gaps $misc_tools_dir/gaps
+
+		if ! python3 -c "import poetry" &>/dev/null; then
+			pip3 install oct2py --ignore-installed pexpect
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple poetry
+		fi
+
+		echo '[[tool.poetry.source]]' >>$misc_tools_dir/gaps/pyproject.toml
+		echo 'name = "tsinghua"' >>$misc_tools_dir/gaps/pyproject.toml
+		echo 'default = true' >>$misc_tools_dir/gaps/pyproject.toml
+		echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple" ' >>$misc_tools_dir/gaps/pyproject.toml
+
+		cd $misc_tools_dir/gaps && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
+		if command -v gaps &>/dev/null; then
+			info "gaps安装成功"
+			rm -rf $misc_tools_dir/gaps
+		else
+			error "gaps安装失败,请检查后重试"
+			rm -rf $misc_tools_dir/gaps
+		fi
 	fi
 }
 
@@ -651,8 +561,6 @@ function install_misc_volatility2() {
 	else
 		info "开始安装volatility2"
 		git clone https://github.com/volatilityfoundation/volatility $misc_tools_dir/volatility2
-
-		apt-get install -y python-dev gcc
 
 		if ! python2 -c "import setuptools" &>/dev/null; then
 			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools
@@ -672,15 +580,11 @@ function install_misc_volatility2() {
 }
 
 function install_misc_volatility3() {
-
 	if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
 		info "volatility3已安装"
 	else
 		info "开始安装volatility3"
 		git clone https://github.com/volatilityfoundation/volatility3 $misc_tools_dir/volatility3
-
-		apt-get install -y libbz2-dev
-		apt-get install -y python3-dev
 
 		if python3 -c "import setuptools" &>/dev/null; then
 			if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
@@ -721,7 +625,6 @@ function install_misc_dwarf2json() {
 			info "开始安装dwarf2json"
 			git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
 			cd $misc_tools_dir/dwarf2json
-			go env -w GOPROXY=https://goproxy.cn
 			go build
 			cd -
 			info "dwarf2json安装结束"
@@ -730,113 +633,81 @@ function install_misc_dwarf2json() {
 }
 
 function install_misc_webp() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v dwebp &>/dev/null; then
-			info "webp已安装"
-		else
-			info "开始安装webp"
-			apt install -y webp
-			info "webp安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if command -v dwebp &>/dev/null; then
+		info "webp已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装webp"
+		apt install -y webp
+		info "webp安装完成"
 	fi
 }
 
 function install_misc_stegpy() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if pip3 list | grep "stegpy" &>/dev/null; then
-			info "stegpy已安装"
-		else
-			info "开始安装stegpy"
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy
-			info "stegpy安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if pip3 list | grep "stegpy" &>/dev/null; then
+		info "stegpy已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装stegpy"
+		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy
+		info "stegpy安装完成"
 	fi
-
 }
 
 function install_misc_minimodem() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v minimodem &>/dev/null; then
-			info "minimodem已安装"
-		else
-			info "开始安装minimodem"
-			apt install -y minimodem
-			info "minimodem安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if command -v minimodem &>/dev/null; then
+		info "minimodem已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装minimodem"
+		apt install -y minimodem
+		info "minimodem安装完成"
 	fi
 }
 
 function install_misc_dtmf2num() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v dtmf2num &>/dev/null; then
-			info "dtmf2num已安装"
-		else
-			info "开始安装dtmf2num"
-			apt install -y dtmf2num
-			info "dtmf2num安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if command -v dtmf2num &>/dev/null; then
+		info "dtmf2num已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装dtmf2num"
+		apt install -y dtmf2num
+		info "dtmf2num安装完成"
 	fi
 }
 
 function install_misc_sstv() {
-	if [[ $os_type == "Ubuntu" ]]; then
+	if command -v sstv &>/dev/null; then
+		info "sstv已安装"
+	else
+		if pip3 list | grep -q "scipy"; then
+			info "scipy已安装"
+		else
+			info "开始安装scipy"
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy
+			info "scipy安装完成"
+		fi
+
+		if pip3 list | grep -q "cffi"; then
+			info "cffi已安装"
+		else
+			info "开始安装cffi"
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi
+			info "cffi安装完成"
+		fi
+
+		git clone https://github.com/colaclanth/sstv.git $misc_tools_dir/sstv
+
+		if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
+			pip3 uninstall -y setuptools
+			pip3 install setuptools==49.2.1
+		fi
+
+		cd $misc_tools_dir/sstv && python3 setup.py install && cd -
 
 		if command -v sstv &>/dev/null; then
-			info "sstv已安装"
+			info "sstv安装成功"
+			rm -rf $misc_tools_dir/sstv
 		else
-			if pip3 list | grep -q "scipy"; then
-				info "scipy已安装"
-			else
-				info "开始安装scipy"
-				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy
-				info "scipy安装完成"
-			fi
-
-			if pip3 list | grep -q "cffi"; then
-				info "cffi已安装"
-			else
-				info "开始安装cffi"
-				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi
-				info "cffi安装完成"
-			fi
-
-			git clone https://github.com/colaclanth/sstv.git $misc_tools_dir/sstv
-
-			if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
-				pip3 uninstall -y setuptools
-				pip3 install setuptools==49.2.1
-			fi
-
-			cd $misc_tools_dir/sstv && python3 setup.py install && cd -
-
-			if command -v sstv &>/dev/null; then
-				info "sstv安装成功"
-				rm -rf $misc_tools_dir/sstv
-			else
-				info "sstv安装失败"
-				rm -rf $misc_tools_dir/sstv
-			fi
+			info "sstv安装失败"
+			rm -rf $misc_tools_dir/sstv
 		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
-	else
-		info "暂不支持的操作系统"
 	fi
 }
 
@@ -861,61 +732,40 @@ function install_misc_usbkeyboarddatahacker() {
 }
 
 function install_misc_wireshark() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v wireshark &>/dev/null; then
-			info "wireshark已安装"
-		else
-			info "开始安装wireshark"
-			apt install -y wireshark tshark
-			info "wireshark安装完成"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if command -v wireshark &>/dev/null; then
+		info "wireshark已安装"
 	else
-		info "暂不支持的操作系统"
+		info "开始安装wireshark"
+		apt install -y wireshark tshark
+		info "wireshark安装完成"
 	fi
 }
 
 function install_misc_pycdc() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
-			info "pycdc已存在"
-		else
-			info "开始下载pycdc脚本"
-			git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc
-			if ! command -v cmake &>/dev/null; then
-				apt install -y cmake
-			fi
-			cd $misc_tools_dir/pycdc && cmake . && make && cd -
-			info "pycdc已安装"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+		info "pycdc已存在"
 	else
-		info "暂不支持的操作系统"
+		info "开始下载pycdc脚本"
+		git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc
+		cd $misc_tools_dir/pycdc && cmake . && make && cd -
+		info "pycdc已安装"
 	fi
 }
 
 function install_misc_stegosaurus() {
-	if [[ $os_type == "Ubuntu" ]]; then
-		if command -v stegosaurus &>/dev/null; then
-			info "stegosaurus已存在"
-		else
-			info "开始下载stegosaurus"
-			wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus
-			chmod +x /usr/local/bin/stegosaurus
-			info "stegosaurus已安装"
-		fi
-	elif [[ $os_type == "CentOS" ]]; then
-		info "暂未适配CentOS"
+	if command -v stegosaurus &>/dev/null; then
+		info "stegosaurus已存在"
 	else
-		info "暂不支持的操作系统"
+		info "开始下载stegosaurus"
+		wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus
+		chmod +x /usr/local/bin/stegosaurus
+		info "stegosaurus已安装"
 	fi
 }
 
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
-	echo "		basics				基础配置(换源，root，ssh等，适合刚安装完的裸机使用)"
+	echo "		basics				基础配置(换源，vim，ssh等，适合刚安装完的裸机使用)"
 	echo "		docker				安装docker"
 	echo "		docker-compose			安装docker-compose"
 	echo "		go				安装golang"
@@ -930,9 +780,10 @@ function main() {
 	fi
 
 	for i in $*; do
-		read -p "警告，该脚本可能会对您的计算机进行更改和删除操作，继续运行吗？默认为：yes. Enter [yes/no]：" is_is
-		if [[ "$is_is" == 'no' ]]; then
-			exit
+		read -p "警告，该脚本可能会对您的系统进行某些更改和删除操作，继续运行吗？默认为：yes. Enter [yes/no]：" is_is
+		if [[ $is_is == "no" || $is_is == "NO" ]]; then
+			info "取消安装"
+			exit 0
 		fi
 		case $i in
 		basics) install_basics ;;
@@ -946,5 +797,5 @@ function main() {
 	done
 }
 
-detecting_system
+# detecting_system
 main $*

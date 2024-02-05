@@ -5,7 +5,7 @@
 
 # 目前支持的功能
 
-1：换源，允许 root 登录（ubuntu），开启 ssh 等基础操作</br>
+1：换网络源，允许 root ssh登录</br>
 2：安装 docker</br>
 3：安装 docker-compose</br>
 4：安装 golang</br>
@@ -46,7 +46,6 @@ zsteg
 # 支持的系统
 
 1：ubuntu16.04/18.04/20.04/22.04</br>
-2：~~centos7/8~~(只有部分功能适配了 centos)</br>
 
 推荐 ubuntu20 加代理运行</br>
 
@@ -62,7 +61,7 @@ chmod 777 auto_deploy.sh</br>
 
 ```shell
 usage: ./auto_deploy.sh [mode]
-        basics              基础配置(换源，root，ssh)
+        basics              基础配置(换源，vim，ssh)
         docker              安装docker
         docker-compose      安装docker-compose
         go                  安装golang
@@ -73,7 +72,7 @@ usage: ./auto_deploy.sh [mode]
 方法二：</br>
 bash <(curl -s https://raw.githubusercontent.com/dr0n1/auto_deploy/main/auto_deploy.sh) [mode]
 
-![](https://lewiserii.oss-cn-hangzhou.aliyuncs.com/auto_deploy/auto_deploy.gif)
+![](./auto_deploy.gif)
 
 # 更新日志
 
@@ -85,7 +84,10 @@ V2.1：增加 CTF-Misc 部分工具的安装</br>
 V2.2：优化可重复运行脚本逻辑</br>
 V2.3：优化部分 python 模块安装逻辑</br>
 V2.4：增加部分misc工具，格式化代码</br>
+V3.1：移除了centos的工具支持，增加golang多版本支持等</br>
 
 # 后续计划
 
-1：计划增加 web 系列工具
+1：计划增加 web 系列工具</br>
+
+有疑问或者有更好的建议请联系1930774374@qq.com
