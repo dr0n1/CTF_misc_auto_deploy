@@ -1,6 +1,6 @@
 #!/bin/bash
 # Author: dr0n1
-# Version：3.1 beta
+# Version：3.2 beta
 # Email: 1930774374@qq.com
 
 [ $(id -u) != "0" ] && {
@@ -20,7 +20,7 @@ function info() {
 
 function error() {
 	echo -e "${COLOR_R}[$tm] [Error] ${1}${RESET}"
-	exit 1
+#	exit 1
 }
 
 # function detecting_system() {
@@ -194,6 +194,7 @@ function install_go() {
 
 	if [ $? -ne 0 ]; then
 		error "golang ${go_version}下载失败，请检查版本号或网络后重试"
+		exit 1
 	fi
 
 	info "创建软连接"
@@ -202,6 +203,7 @@ function install_go() {
 	go version >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
 		error "go ${go_version}安装失败"
+		exit 1
 	else
 		go env -w GOPROXY=https://goproxy.cn
 		info "go ${go_version}安装成功"
@@ -226,6 +228,7 @@ function install_java() {
 	java --version >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
 		error "java安装失败，请检查网络或其他原因后重试"
+		exit 1
 	else
 		info "java $java_version 安装完成"
 	fi
@@ -268,9 +271,9 @@ function install_ctf_misc_tools() {
 	done
 
 	if [ ${#unsupported_tools[@]} -ne 0 ]; then
-		info "暂不支持安装以下工具："
+		error "暂不支持安装以下工具："
 		for tool in "${unsupported_tools[@]}"; do
-			info "- $tool"
+			error "- $tool"
 		done
 		list_supported_tools
 	fi
@@ -413,7 +416,7 @@ function install_misc_stegseek() {
 	else
 		info "开始安装stegseek"
 		wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb
-		apt install -y stegseek_0.6-1.deb
+		apt install -y ./stegseek_0.6-1.deb
 		rm -rf stegseek_0.6-1.deb
 
 		if [ -f /usr/share/wordlists/rockyou.txt ]; then
@@ -531,6 +534,7 @@ function install_misc_gaps() {
 	if command -v gaps &>/dev/null; then
 		info "gaps已安装"
 	else
+		rm -rf $misc_tools_dir/gaps
 		info "开始安装gaps"
 		git clone https://github.com/nemanja-m/gaps $misc_tools_dir/gaps
 
@@ -544,7 +548,7 @@ function install_misc_gaps() {
 		echo 'default = true' >>$misc_tools_dir/gaps/pyproject.toml
 		echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple" ' >>$misc_tools_dir/gaps/pyproject.toml
 
-		cd $misc_tools_dir/gaps && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
+		cd $misc_tools_dir/gaps && poetry lock --no-update && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
 		if command -v gaps &>/dev/null; then
 			info "gaps安装成功"
 			rm -rf $misc_tools_dir/gaps
@@ -613,14 +617,20 @@ function install_misc_dwarf2json() {
 		info "dwarf2json已安装"
 	else
 		if command -v go &>/dev/null; then
-			info "开始安装dwarf2json"
-			git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
-			cd $misc_tools_dir/dwarf2json
-			go build
-			cd -
-			info "dwarf2json安装结束"
+			go_version=$(go version | awk '{print $3}')
+			required_version="go1.18"
+			if [[ "$(printf '%s\n' "$required_version" "$go_version" | sort -V | head -n1)" == "$required_version" ]]; then
+				info "开始安装dwarf2json"
+				git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
+				cd $misc_tools_dir/dwarf2json
+				go build
+				cd -
+				info "dwarf2json安装结束"
+			else
+				error "dwarf2json安装失败，Go版本过低，请安装Go 1.18或更高版本"
+			fi
 		else
-			info "未检测到go环境"
+			info "未检测到go环境，请安装Go 1.18或更高版本"
 			install_go
 			info "开始安装dwarf2json"
 			git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
@@ -705,7 +715,7 @@ function install_misc_sstv() {
 			info "sstv安装成功"
 			rm -rf $misc_tools_dir/sstv
 		else
-			info "sstv安装失败"
+			error "sstv安装失败"
 			rm -rf $misc_tools_dir/sstv
 		fi
 	fi
