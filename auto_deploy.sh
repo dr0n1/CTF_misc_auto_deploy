@@ -807,5 +807,4 @@ function main() {
 	done
 }
 
-# detecting_system
 main $*
