@@ -225,7 +225,7 @@ function install_java() {
 	info "开始安装java $java_version"
 	apt-get install -y openjdk-$java_version-jdk
 
-	java --version >/dev/null 2>&1
+	java -version >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
 		error "java安装失败，请检查网络或其他原因后重试"
 		exit 1
