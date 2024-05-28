@@ -3,11 +3,6 @@
 # Version：3.2 beta
 # Email: 1930774374@qq.com
 
-[ $(id -u) != "0" ] && {
-	echo "请用root用户运行"
-	exit 1
-}
-
 misc_tools_dir="misc_tools"
 tm=$(date +'%Y%m%d %T')
 COLOR_G="\x1b[0;32m"
@@ -20,36 +15,61 @@ function info() {
 
 function error() {
 	echo -e "${COLOR_R}[$tm] [Error] ${1}${RESET}"
-#	exit 1
 }
 
-# function detecting_system() {
-# 	OS=$(uname -s)
-# 	if [ ${OS} == "Linux" ]; then
-# 		source /etc/os-release
-# 		case $ID in
-# 		debian | ubuntu | devuan)
-# 			os_type="Ubuntu"
-# 			;;
-# 		centos | fedora | rhel)
-# 			yumdnf="yum"
-# 			c_version="7"
-# 			if test "$(echo "$VERSION_ID >= 22" | bc)" -ne 0; then
-# 				yumdnf="dnf"
-# 				c_version="8"
-# 			fi
-# 			os_type="Centos"
-# 			;;
-# 		*)
-# 			exit 1
-# 			;;
-# 		esac
-# 	elif [ ${OS} == "Windows_NT" ]; then
-# 		os_type="Windows"
-# 	else
-# 		os_type="Unknow"
-# 	fi
-# }
+function install_basics() {
+	if ! grep -q "mirrors.ustc.edu.cn" /etc/apt/sources.list; then
+		info "开始获取对应网络源(USTC)"
+		rm -rf /var/cache/apt/archives/lock* && rm -rf /var/lib/dpkg/lock* && rm -rf /var/lib/apt/lists/lock*
+		apt update 2>/dev/null #适配ubuntu16
+		apt install -y curl    #适配ubuntu16
+		ubuntu_lsb=$(lsb_release -a 2>/dev/null | awk -F " " '{if ( $1	~ /Codename/ ){ print $2 } }')
+		curl "https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-"$ubuntu_lsb -o /etc/apt/sources.list
+		info "ustc源获取完毕"
+	else
+		info "已经获取对应网络源(USTC)"
+	fi
+
+	info "开始更新源"
+	apt-get clean
+	apt-get update 2>/dev/null
+	apt-get install wget net-tools openssl -y
+	info "更新完毕"
+
+	info "开始解决ubuntu vim上下键变成ABCD问题"
+	apt-get remove vim-common -y
+	apt-get install vim -y
+	info "ubuntu vim问题解决完毕"
+
+	info "开始配置root用户登录系统"
+	if ! grep -q "greeter-show-manual-login=true" /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf; then
+		echo "greeter-show-manual-login=true" >>/usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf
+	fi
+	if ! sed -n '3p' /etc/pam.d/gdm-autologin | grep -q '^#'; then
+		sed -i '3s/^/#/' /etc/pam.d/gdm-autologin
+	fi
+	if ! sed -n '3p' /etc/pam.d/gdm-password | grep -q '^#'; then
+		sed -i '3s/^/#/' /etc/pam.d/gdm-password
+	fi
+	if ! grep -q "mesg" /root/.profile; then
+		echo 'tty -s && mesg n || true' >>/root/.profile
+		echo 'mesg n || true' >>/root/.profile
+	else
+		sed -i '/mesg n || true/d' /root/.profile
+		echo 'tty -s && mesg n || true' >>/root/.profile
+		echo 'mesg n || true' >>/root/.profile
+	fi
+	info "root用户登录配置完毕"
+
+	info "开始配置ssh"
+	apt remove openssh-client -y
+	apt install openssh-server openssh-client ssh -y
+	sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
+	sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+	service sshd restart
+	info "ssh配置完毕"
+
+}
 
 function install_docker() {
 	if command -v docker &>/dev/null; then
@@ -121,62 +141,8 @@ function install_docker-compose() {
 	info "docker-compose检测完毕"
 }
 
-function install_basics() {
-	if ! grep -q "mirrors.ustc.edu.cn" /etc/apt/sources.list; then
-		info "开始获取对应网络源(USTC)"
-		rm -rf /var/cache/apt/archives/lock* && rm -rf /var/lib/dpkg/lock* && rm -rf /var/lib/apt/lists/lock*
-		apt update 2>/dev/null #适配ubuntu16
-		apt install -y curl    #适配ubuntu16
-		ubuntu_lsb=$(lsb_release -a 2>/dev/null | awk -F " " '{if ( $1	~ /Codename/ ){ print $2 } }')
-		curl "https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-"$ubuntu_lsb -o /etc/apt/sources.list
-		info "ustc源获取完毕"
-	else
-		info "已经获取对应网络源(USTC)"
-	fi
-
-	info "开始更新源"
-	apt-get clean
-	apt-get update 2>/dev/null
-	apt-get install wget net-tools openssl -y
-	info "更新完毕"
-
-	info "开始解决ubuntu vim上下键变成ABCD问题"
-	apt-get remove vim-common -y
-	apt-get install vim -y
-	info "ubuntu vim问题解决完毕"
-
-	info "开始配置root用户登录系统"
-	if ! grep -q "greeter-show-manual-login=true" /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf; then
-		echo "greeter-show-manual-login=true" >>/usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf
-	fi
-	if ! sed -n '3p' /etc/pam.d/gdm-autologin | grep -q '^#'; then
-		sed -i '3s/^/#/' /etc/pam.d/gdm-autologin
-	fi
-	if ! sed -n '3p' /etc/pam.d/gdm-password | grep -q '^#'; then
-		sed -i '3s/^/#/' /etc/pam.d/gdm-password
-	fi
-	if ! grep -q "mesg" /root/.profile; then
-		echo 'tty -s && mesg n || true' >>/root/.profile
-		echo 'mesg n || true' >>/root/.profile
-	else
-		sed -i '/mesg n || true/d' /root/.profile
-		echo 'tty -s && mesg n || true' >>/root/.profile
-		echo 'mesg n || true' >>/root/.profile
-	fi
-	info "root用户登录配置完毕"
-
-	info "开始配置ssh"
-	apt remove openssh-client -y
-	apt install openssh-server openssh-client ssh -y
-	sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
-	sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-	service sshd restart
-	info "ssh配置完毕"
-
-}
-
 function install_go() {
-	go_version='1.14.2'
+	go_version='1.18'
 
 	if command -v go &>/dev/null; then
 		go_version=$(go version | awk '{print $3}')
@@ -211,26 +177,47 @@ function install_go() {
 }
 
 function install_java() {
-	info "请输入想要安装的版本 (e.g. 11 or 16):"
-	read java_version
+	apt update
 
 	if command -v java &>/dev/null; then
-		installed_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-		if [[ $installed_version == $java_version* ]]; then
-			info "Java $java_version 已经安装"
+		java_version=$(java -version 2>&1 | sed '1!d' | sed -e 's/"//g' | awk '{print $3}')
+
+		info "Java $java_version 已经存在，是否继续安装其他版本？默认为：no. Enter [yes/no]:"
+		read other_version
+
+		if [[ $other_version == "Y" || $other_version == "y" || $other_version == "YES" || $other_version == "yes" ]]; then
+			info "请输入想要安装的openjdk版本 (e.g. 8 or 11):"
+			read installed_version
+			apt-get install -y openjdk-$installed_version-jdk
+
+			if [ $? -ne 0 ]; then
+				error "java安装失败，请检查网络或其他原因后重试"
+				exit 1
+			else
+				info "java $installed_version 安装完成"
+			fi
+		else
+			info "结束安装"
 			exit 0
+		fi
+
+		info "请选择需要使用的Java版本"
+		update-alternatives --config java
+	else
+		info "请输入想要安装的openjdk版本 (e.g. 8 or 11):"
+		read installed_version
+
+		info "开始安装java $installed_version"
+		apt-get install -y openjdk-$installed_version-jdk
+
+		if [ $? -ne 0 ]; then
+			error "java安装失败，请检查网络或其他原因后重试"
+			exit 1
+		else
+			info "java $installed_version 安装完成"
 		fi
 	fi
 
-	info "开始安装java $java_version"
-	apt-get install -y openjdk-$java_version-jdk
-
-	if [ $? -ne 0 ]; then
-		error "java安装失败，请检查网络或其他原因后重试"
-		exit 1
-	else
-		info "java $java_version 安装完成"
-	fi
 }
 
 function install_ctf_misc_tools() {
@@ -783,6 +770,11 @@ function usage() {
 }
 
 function main() {
+	[ $(id -u) != "0" ] && {
+		error "请用root用户运行"
+		exit 1
+	}
+
 	if [[ -z $* || $* == "-h" || $* == "-help" ]]; then
 		usage
 		return
@@ -794,6 +786,7 @@ function main() {
 			info "取消安装"
 			exit 0
 		fi
+
 		case $i in
 		basics) install_basics ;;
 		docker) install_docker ;;

@@ -11,7 +11,7 @@
 3：安装 docker-compose</br>
 4：安装 golang</br>
 5：安装 java</br>
-6：安装 linux 下的部分 misc 工具，具体如下</br>
+6：安装 linux 下的部分 misc 工具和第三方脚本（我知道的），具体如下</br>
 
 ```text
 binwalk
@@ -86,7 +86,7 @@ V2.2：优化可重复运行脚本逻辑</br>
 V2.3：优化部分 python 模块安装逻辑</br>
 V2.4：增加部分misc工具，格式化代码</br>
 V3.1：移除了centos的工具支持，增加golang多版本支持等</br>
-V3.2：修复了诺干bug</br>
+V3.2：修复了诺干bug，增加了java版本管理</br>
 
 # 后续计划
 
