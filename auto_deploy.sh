@@ -574,6 +574,7 @@ function install_misc_volatility3() {
 		info "volatility3已安装"
 	else
 		info "开始安装volatility3"
+		rm -rf $misc_tools_dir/volatility3/
 		git clone https://github.com/volatilityfoundation/volatility3 $misc_tools_dir/volatility3
 
 		if python3 -c "import setuptools" &>/dev/null; then
@@ -593,7 +594,8 @@ function install_misc_volatility3() {
 			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple yara-python
 		fi
 
-		cd $misc_tools_dir/volatility3 && python3 setup.py install && cd -
+		cd $misc_tools_dir/volatility3 && pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+		pip3 install . && python3 setup.py install && cd -
 		info "volatility3安装完成"
 	fi
 }
@@ -756,6 +758,16 @@ function install_misc_stegosaurus() {
 		wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus
 		chmod +x /usr/local/bin/stegosaurus
 		info "stegosaurus已安装"
+	fi
+}
+
+function install_misc_identify() {
+	if command -v identify &>/dev/null; then
+		info "identify已存在"
+	else
+		info "开始安装identify"
+		apt install -y imagemagick
+		info "identify已安装"
 	fi
 }
 

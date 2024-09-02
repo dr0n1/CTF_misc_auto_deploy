@@ -26,6 +26,7 @@ f5-steganography
 foremost
 gaps
 gnuplot
+identify
 minimodem
 montage
 outguess
