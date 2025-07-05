@@ -258,6 +258,10 @@ function install_java() {
 	info "当前 Java 版本为：$(java -version 2>&1 | head -n 1)"
 }
 
+function install_pwntools(){
+	echo 1
+}
+
 function install_ctf_misc_tools() {
 	info "支持的工具列表如下（可输入 all 全部安装）："
 	list_supported_tools
@@ -321,7 +325,7 @@ function list_supported_tools {
 function install_misctool_base() {
 	info "安装系统依赖包"
 	apt-get update -q
-	apt-get install -y git gcc cmake python-dev python3-dev libbz2-dev python-tk
+	apt-get install -y git gcc cmake python2-dev python3-dev libbz2-dev python-tk
 
 	if ! command -v python2 &>/dev/null; then
 		info "安装 python2..."
@@ -343,7 +347,6 @@ function install_misctool_base() {
 		[pillow]=PIL
 		[enum]=enum
 		[setuptools]=setuptools
-		[distorm3]=distorm3
 	)
 
 	for pkg in "${!py2_modules_map[@]}"; do
@@ -690,7 +693,7 @@ function install_misc_zsteg() {
 
 # git clone
 function install_misc_cloacked-pixel() {
-	if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
+	if [ -d "$misc_tools_dir/cloacked-pixel" ] && [ -f "$misc_tools_dir/cloacked-pixel/lsb.py" ]; then
 		info "cloacked-pixel 已经安装"
 		return
 	fi
@@ -708,7 +711,7 @@ function install_misc_cloacked-pixel() {
 }
 
 function install_misc_f5-steganography() {
-	if [ -f ./$misc_tools_dir/F5-steganography/Extract.java ]; then
+	if [ -d "$misc_tools_dir/F5-steganography" ] && [ -f "$misc_tools_dir/F5-steganography/Extract.java" ]; then
 		info "F5-steganography 已经安装"
 		return
 	fi
@@ -726,7 +729,7 @@ function install_misc_f5-steganography() {
 }
 
 function install_misc_blindwatermark() {
-	if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
+	if [ -d "$misc_tools_dir/BlindWaterMark" ] && [ -f "$misc_tools_dir/BlindWaterMark/bwm.py" ]; then
 		info "BlindWaterMark 已经安装"
 		return
 	fi
@@ -744,7 +747,7 @@ function install_misc_blindwatermark() {
 }
 
 function install_misc_volatility2() {
-	if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
+	if [ -d "$misc_tools_dir/volatility2" ] && [ -f "$misc_tools_dir/volatility2/build/scripts-2.7/vol.py" ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
 		info "volatility2已安装"
 		return
 	fi
@@ -753,6 +756,9 @@ function install_misc_volatility2() {
 	if git clone https://github.com/volatilityfoundation/volatility $misc_tools_dir/volatility2; then
 		if ! python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
 			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycrypto
+		fi
+		if ! python2 -c "import distorm3" &>/dev/null; then
+			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple distorm3
 		fi
 		cd $misc_tools_dir/volatility2 && python2 setup.py install && cd -
 
@@ -767,7 +773,7 @@ function install_misc_volatility2() {
 }
 
 function install_misc_volatility3() {
-	if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
+	if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py" ]; then
 		info "volatility3已安装"
 		return
 	fi
@@ -787,7 +793,7 @@ function install_misc_volatility3() {
 			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome
 		fi
 
-		cd $misc_tools_dir/volatility3 && pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+		cd $misc_tools_dir/volatility3 && pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple
 		pip3 install . && python3 setup.py install && cd -
 
 		if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
@@ -801,7 +807,7 @@ function install_misc_volatility3() {
 }
 
 function install_misc_usb-mouse-pcap-visualizer() {
-	if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ]; then
+	if [ -d "$misc_tools_dir/USB-Mouse-Pcap-Visualizer" ] && [ -f "$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py" ]; then
 		info "USB-Mouse-Pcap-Visualizer 已经安装"
 		return
 	fi
@@ -819,7 +825,7 @@ function install_misc_usb-mouse-pcap-visualizer() {
 }
 
 function install_misc_usbkeyboarddatahacker() {
-	if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ]; then
+	if [ -d "$misc_tools_dir/UsbKeyboardDataHacker" ] && [ -f "$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py" ]; then
 		info "UsbKeyboardDataHacker 已经安装"
 		return
 	fi
@@ -886,7 +892,7 @@ function install_misc_sstv() {
 }
 
 function install_misc_pycdc() {
-	if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+	if [ -d "$misc_tools_dir/pycdc" ] && [ -f "$misc_tools_dir/pycdc/pycdc" ]; then
 		info "pycdc 已经安装"
 		return
 	fi
@@ -923,12 +929,9 @@ function install_misc_gaps() {
 			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple poetry
 		fi
 
-		echo '[[tool.poetry.source]]' >>$misc_tools_dir/gaps/pyproject.toml
-		echo 'name = "tsinghua"' >>$misc_tools_dir/gaps/pyproject.toml
-		echo 'default = true' >>$misc_tools_dir/gaps/pyproject.toml
-		echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple" ' >>$misc_tools_dir/gaps/pyproject.toml
+		poetry config repositories.tsinghua https://pypi.tuna.tsinghua.edu.cn/simple
 
-		cd $misc_tools_dir/gaps && poetry lock --no-update && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
+		cd $misc_tools_dir/gaps && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
 		if command -v gaps &>/dev/null; then
 			info "gaps安装成功"
 			rm -rf $misc_tools_dir/gaps
@@ -940,7 +943,7 @@ function install_misc_gaps() {
 }
 
 function install_misc_dwarf2json() {
-	if [ -f ./$misc_tools_dir/dwarf2json/dwarf2json ]; then
+	if [ -d "$misc_tools_dir/dwarf2json" ] && [ -f $misc_tools_dir/dwarf2json/dwarf2json ]; then
 		info "dwarf2json已安装"
 	else
 		if command -v go &>/dev/null; then
@@ -977,6 +980,7 @@ function install_misc_bkcrack() {
 	fi
 
 	info "开始安装 bkcrack..."
+	mkdir -p "$misc_tools_dir"
 	if wget https://github.com/kimci86/bkcrack/releases/download/v1.5.0/bkcrack-1.5.0-Linux.tar.gz && tar xf bkcrack-1.5.0-Linux.tar.gz -C $misc_tools_dir/; then
 		rm -rf bkcrack-1.5.0-Linux.tar.gz
 		if [ -f ./$misc_tools_dir/bkcrack-1.5.0-Linux/bkcrack ]; then
@@ -985,6 +989,7 @@ function install_misc_bkcrack() {
 			error "bkcrack 下载完成，但可执行文件未找到，可能压缩包结构已变更"
 		fi
 	else
+		rm -rf bkcrack-1.5.0-Linux.tar.gz
 		error "bkcrack 安装失败，请检查网络连接或GitHub访问"
 	fi
 }
@@ -1064,6 +1069,7 @@ function main() {
 			go) install_go ;;
 			java) install_java ;;
 			misc-tools) install_ctf_misc_tools ;;
+			pwntools) install_pwntools ;;
 			*) info "没有这个参数^_^" ;;
 		esac
 	done
