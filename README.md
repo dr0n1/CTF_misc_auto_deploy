@@ -1,17 +1,18 @@
 # CTF_misc_auto_deploy
 
-一个自动部署 Misc 工具的~~轻量~~sh 脚本</br>
-闲的无聊随便写的小玩意</br>
-适合在新环境中快速安装misc工具
+一个自动安装CTF Misc/Pwn 工具的~~轻量~~sh 脚本</br>
+适合在新虚拟机中快速安装工具</br>
+
 
 # 目前支持的功能
 
-1：换网络源，允许 root ssh登录</br>
+1：基础功能（换网络源，允许 root ssh登录等）</br>
 2：安装 docker</br>
 3：安装 docker-compose</br>
 4：安装 golang</br>
 5：安装 java</br>
-6：安装 linux 下的部分 misc 工具和第三方脚本（我知道的），具体如下</br>
+6：安装pwntools等pwn工具</br>
+7：安装 linux 下的部分 misc 工具和第三方脚本，具体如下</br>
 
 ```text
 binwalk
@@ -63,12 +64,15 @@ chmod 777 auto_deploy.sh</br>
 
 ```shell
 usage: ./auto_deploy.sh [mode]
-        basics              基础配置(换源，vim，ssh)
-        docker              安装docker
-        docker-compose      安装docker-compose
-        go                  安装golang
-        java                安装java
-        misc-tools          安装misc工具
+                base                            基础配置
+                docker                          安装docker
+                docker-compose                  安装docker-compose
+                go                              安装golang
+                java                            安装java
+                misc-tools                      安装misc工具
+                pwntools                        安装pwn工具
+
+示例: ./auto_deploy.sh base docker
 ```
 
 方法二：</br>

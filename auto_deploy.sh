@@ -248,7 +248,6 @@ function install_java() {
 		fi
 	fi
 
-
 	info "配置默认 Java 版本..."
 	update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/java 1
 	update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/javac 1
@@ -258,7 +257,7 @@ function install_java() {
 	info "当前 Java 版本为：$(java -version 2>&1 | head -n 1)"
 }
 
-function install_pwntools(){
+function install_pwntools() {
 	echo 1
 }
 
@@ -356,8 +355,6 @@ function install_misctool_base() {
 			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade "$pkg"
 		fi
 	done
-
-
 
 	if ! command -v pip3 &>/dev/null; then
 		info "安装 pip3..."
@@ -700,7 +697,7 @@ function install_misc_cloacked-pixel() {
 
 	info "开始安装 cloacked-pixel..."
 	if git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel; then
-		if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
+		if [ -d "$misc_tools_dir/cloacked-pixel" ] && [ -f "$misc_tools_dir/cloacked-pixel/lsb.py" ]; then
 			info "cloacked-pixel 安装完成"
 		else
 			error "cloacked-pixel 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -718,7 +715,7 @@ function install_misc_f5-steganography() {
 
 	info "开始安装 F5-steganography..."
 	if git clone https://github.com/matthewgao/F5-steganography $misc_tools_dir/F5-steganography; then
-		if [ -f ./$misc_tools_dir/F5-steganography/Extract.java ]; then
+		if [ -d "$misc_tools_dir/F5-steganography" ] && [ -f "$misc_tools_dir/F5-steganography/Extract.java" ]; then
 			info "F5-steganography 安装完成"
 		else
 			error "F5-steganography 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -736,7 +733,7 @@ function install_misc_blindwatermark() {
 
 	info "开始安装 BlindWaterMark..."
 	if git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark; then
-		if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
+		if [ -d "$misc_tools_dir/BlindWaterMark" ] && [ -f "$misc_tools_dir/BlindWaterMark/bwm.py" ]; then
 			info "BlindWaterMark 安装完成"
 		else
 			error "BlindWaterMark 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -762,7 +759,7 @@ function install_misc_volatility2() {
 		fi
 		cd $misc_tools_dir/volatility2 && python2 setup.py install && cd -
 
-		if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
+		if [ -d "$misc_tools_dir/volatility2" ] && [ -f "$misc_tools_dir/volatility2/build/scripts-2.7/vol.py" ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
 			info "volatility2 安装完成"
 		else
 			error "volatility2 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -796,7 +793,7 @@ function install_misc_volatility3() {
 		cd $misc_tools_dir/volatility3 && pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple
 		pip3 install . && python3 setup.py install && cd -
 
-		if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
+		if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py" ]; then
 			info "volatility3 安装完成"
 		else
 			error "volatility3 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -814,7 +811,7 @@ function install_misc_usb-mouse-pcap-visualizer() {
 
 	info "开始安装 USB-Mouse-Pcap-Visualizer..."
 	if git clone https://github.com/WangYihang/USB-Mouse-Pcap-Visualizer $misc_tools_dir/USB-Mouse-Pcap-Visualizer; then
-		if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ]; then
+		if [ -d "$misc_tools_dir/USB-Mouse-Pcap-Visualizer" ] && [ -f "$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py" ]; then
 			info "USB-Mouse-Pcap-Visualizer 安装完成"
 		else
 			error "USB-Mouse-Pcap-Visualizer 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -832,7 +829,7 @@ function install_misc_usbkeyboarddatahacker() {
 
 	info "开始安装 UsbKeyboardDataHacker..."
 	if git clone https://github.com/WangYihang/UsbKeyboardDataHacker $misc_tools_dir/UsbKeyboardDataHacker; then
-		if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ]; then
+		if [ -d "$misc_tools_dir/UsbKeyboardDataHacker" ] && [ -f "$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py" ]; then
 			info "UsbKeyboardDataHacker 安装完成"
 		else
 			error "UsbKeyboardDataHacker 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -902,7 +899,7 @@ function install_misc_pycdc() {
 		cd $misc_tools_dir/pycdc
 		if cmake . && make; then
 			cd -
-			if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+			if [ -d "$misc_tools_dir/pycdc" ] && [ -f "$misc_tools_dir/pycdc/pycdc" ]; then
 				info "pycdc 安装完成"
 			else
 				error "pycdc 编译完成，但可执行文件未找到，可能编译失败"
@@ -921,7 +918,7 @@ function install_misc_gaps() {
 		info "gaps已安装"
 	else
 		rm -rf $misc_tools_dir/gaps
-		info "开始安装gaps"
+		info "开始安装 gaps..."
 		git clone https://github.com/nemanja-m/gaps $misc_tools_dir/gaps
 
 		if ! python3 -c "import poetry" &>/dev/null; then
@@ -950,7 +947,7 @@ function install_misc_dwarf2json() {
 			go_version=$(go version | awk '{print $3}')
 			required_version="go1.18"
 			if [[ "$(printf '%s\n' "$required_version" "$go_version" | sort -V | head -n1)" == "$required_version" ]]; then
-				info "开始安装dwarf2json"
+				info "开始安装 dwarf2json..."
 				git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
 				cd $misc_tools_dir/dwarf2json
 				go build
@@ -962,7 +959,7 @@ function install_misc_dwarf2json() {
 		else
 			info "未检测到go环境，请安装Go 1.18或更高版本"
 			install_go
-			info "开始安装dwarf2json"
+			info "开始安装 dwarf2json..."
 			git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
 			cd $misc_tools_dir/dwarf2json
 			go build
@@ -1063,14 +1060,14 @@ function main() {
 
 	for i in "$@"; do
 		case $i in
-			base) install_basics ;;
-			docker) install_docker ;;
-			docker-compose) install_docker-compose ;;
-			go) install_go ;;
-			java) install_java ;;
-			misc-tools) install_ctf_misc_tools ;;
-			pwntools) install_pwntools ;;
-			*) info "没有这个参数^_^" ;;
+		base) install_basics ;;
+		docker) install_docker ;;
+		docker-compose) install_docker-compose ;;
+		go) install_go ;;
+		java) install_java ;;
+		misc-tools) install_ctf_misc_tools ;;
+		pwntools) install_pwntools ;;
+		*) info "没有这个参数^_^" ;;
 		esac
 	done
 }
