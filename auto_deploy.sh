@@ -1,47 +1,64 @@
 #!/bin/bash
 # Author: dr0n1
-# Version：3.2 beta
+# Version：4.1 beta
 # Email: 1930774374@qq.com
 
 misc_tools_dir="misc_tools"
-tm=$(date +'%Y%m%d %T')
 COLOR_G="\x1b[0;32m"
 COLOR_R="\x1b[0;31m"
+COLOR_Y="\x1b[0;33m"
 RESET="\x1b[0m"
 
 function info() {
-	echo -e "${COLOR_G}[$tm] [Info] ${1}${RESET}"
+	printf "${COLOR_G}[$(date +'%Y%m%d %T')] [Info] %s${RESET}\n" "$1"
+}
+
+function warn() {
+	printf "${COLOR_Y}[$(date +'%Y%m%d %T')] [Warning] %s${RESET}\n" "$1"
 }
 
 function error() {
-	echo -e "${COLOR_R}[$tm] [Error] ${1}${RESET}"
+	printf "${COLOR_R}[$(date +'%Y%m%d %T')] [Error] %s${RESET}\n" "$1"
 }
 
 function install_basics() {
 	if ! grep -q "mirrors.ustc.edu.cn" /etc/apt/sources.list; then
 		info "开始获取对应网络源(USTC)"
-		rm -rf /var/cache/apt/archives/lock* && rm -rf /var/lib/dpkg/lock* && rm -rf /var/lib/apt/lists/lock*
-		apt update 2>/dev/null #适配ubuntu16
-		apt install -y curl    #适配ubuntu16
-		ubuntu_lsb=$(lsb_release -a 2>/dev/null | awk -F " " '{if ( $1	~ /Codename/ ){ print $2 } }')
-		curl "https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-"$ubuntu_lsb -o /etc/apt/sources.list
-		info "ustc源获取完毕"
+
+		if ! command -v curl >/dev/null 2>&1; then
+			info "安装 curl..."
+			apt-get update -q
+			apt-get install -y curl
+		fi
+
+		ubuntu_lsb=$(lsb_release -c -s)
+		src_url="https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-${ubuntu_lsb}.sources"
+
+		if curl -fsSL "$src_url" -o /etc/apt/sources.list; then
+			info "USTC 源配置成功"
+		else
+			error "获取 USTC 源失败，检查网络或 codename: $ubuntu_lsb"
+		fi
 	else
-		info "已经获取对应网络源(USTC)"
+		info "系统已使用 USTC 源，跳过"
 	fi
 
-	info "开始更新源"
+	info "更新软件包索引"
 	apt-get clean
-	apt-get update 2>/dev/null
-	apt-get install wget net-tools openssl -y
-	info "更新完毕"
+	apt-get update -q
+	apt-get install -y wget net-tools openssl >/dev/null 2>&1
+	info "基础工具安装完成"
 
-	info "开始解决ubuntu vim上下键变成ABCD问题"
-	apt-get remove vim-common -y
-	apt-get install vim -y
-	info "ubuntu vim问题解决完毕"
+	if ! vim --version 2>/dev/null | grep -q "+mouse"; then
+		info "修复 vim 上下键异常问题"
+		apt-get remove -y vim-common >/dev/null 2>&1
+		apt-get install -y vim >/dev/null 2>&1
+		info "vim 修复完成"
+	else
+		info "vim 已为完整版，跳过修复"
+	fi
 
-	info "开始配置root用户登录系统"
+	info "配置 root 图形登录"
 	if ! grep -q "greeter-show-manual-login=true" /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf; then
 		echo "greeter-show-manual-login=true" >>/usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf
 	fi
@@ -59,14 +76,19 @@ function install_basics() {
 		echo 'tty -s && mesg n || true' >>/root/.profile
 		echo 'mesg n || true' >>/root/.profile
 	fi
-	info "root用户登录配置完毕"
+	info "root 登录配置完成"
 
-	info "开始配置ssh"
+	info "配置 SSH 服务"
 	apt remove openssh-client -y
 	apt install openssh-server openssh-client ssh -y
 	sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
 	sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-	service sshd restart
+	if systemctl list-units --type=service | grep -q ssh; then
+		systemctl enable ssh
+		systemctl restart ssh
+	else
+		service ssh restart
+	fi
 	info "ssh配置完毕"
 
 }
@@ -74,445 +96,817 @@ function install_basics() {
 function install_docker() {
 	if command -v docker &>/dev/null; then
 		read -p "Docker已经安装，是否卸载并安装最新版本？ （可能发生某些意外） 默认为：no. Enter [yes/no]: " answer
-		if [[ $answer == "Y" || $answer == "y" || $answer == "YES" || $answer == "yes" ]]; then
-			info "1.卸载旧版本 Docker..."
-			apt-get remove docker docker-engine docker-ce docker.io -y
-			apt-get update
-			info "卸载完毕"
+		if [[ $answer =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			info "卸载旧版 Docker..."
+			apt-get remove -y docker docker-engine docker-ce docker.io containerd runc >/dev/null 2>&1
+			apt-get purge -y docker-ce docker-ce-cli containerd.io >/dev/null 2>&1
+			rm -rf /var/lib/docker /var/lib/containerd
+			info "旧版本卸载完毕"
 		else
-			info "取消安装最新版本 Docker"
-			exit 0
+			info "取消安装 Docker"
+			return
 		fi
 	fi
 
-	info "2.开始安装 Docker..."
-	ubuntu_version=$(lsb_release -r | awk '{print substr($2,1,2)}')
-	if [ $ubuntu_version -le 16 ]; then
-		apt-get update
+	info "准备安装 Docker..."
+	ubuntu_codename=$(lsb_release -cs)
+	ubuntu_version=$(lsb_release -rs | cut -d'.' -f1)
+
+	if [ "$ubuntu_version" -le 16 ]; then
+		info "Ubuntu $ubuntu_version 为旧版本，使用 Docker 官方源手动添加方式"
+		apt-get update -q
 		apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-		curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-		add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-		apt-get update
+
+		if ! apt-key list 2>/dev/null | grep -q "Docker Release"; then
+			curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - >/dev/null 2>&1
+		fi
+
+		if ! grep -q "^deb .*download.docker.com" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+			add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $ubuntu_codename stable" >/dev/null 2>&1
+		fi
+
+		apt-get update -q
 		apt-get install -y docker-ce
 	else
-		curl -sSL https://get.daocloud.io/docker | sh
-		if [ $? -ne 0 ]; then
-			curl -fLsS https://get.docker.com/ | sh
+		info "尝试使用 Daocloud 安装脚本"
+		if curl -fsSL https://get.daocloud.io/docker -o /tmp/docker_install.sh; then
+			bash /tmp/docker_install.sh
+			info "使用 Daocloud 安装成功"
+		else
+			warn "无法连接 get.daocloud.io，切换至 Docker 官方安装脚本"
+			if curl -fsSL https://get.docker.com -o /tmp/docker_install.sh; then
+				bash /tmp/docker_install.sh
+				info "使用官方脚本安装成功"
+			else
+				error "Docker 安装失败，无法从任何源获取"
+				exit 1
+			fi
 		fi
 	fi
 
+	rm -rf /tmp/docker_install.sh
 	if ! command -v docker &>/dev/null; then
-		error "可能由于网络原因或其他未知原因导致Docker安装失败，请检查后重试"
+		error "Docker 安装失败，可能是网络问题或安装源故障"
 		exit 1
 	fi
 
-	info "Docker安装完毕"
+	info "Docker 安装成功，正在启动服务..."
+	systemctl enable docker >/dev/null 2>&1
+	systemctl restart docker
 
-	info "3.启动 Docker CE..."
-	systemctl enable docker
-	systemctl start docker
-	info "docker启动完毕"
-
-	info "4.检测 Docker 信息"
-	docker info
-	info "docker检测完毕"
+	info "Docker 信息如下："
+	if ! docker info 2>/dev/null; then
+		error "docker info 执行失败，请确认服务是否正常运行"
+	fi
+	info "Docker 安装与检测完成"
 }
 
 function install_docker-compose() {
 	if command -v docker-compose &>/dev/null; then
-		info "docker-compose已安装"
-		exit 0
+		info "docker-compose 已安装，版本：$(docker-compose --version)"
+		return
 	fi
 
-	info "1.安装docker-compose"
-	# curl -L https://get.daocloud.io/docker/compose/releases/download/v2.6.1/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
-	curl -L https://github.com/docker/compose/releases/download/v2.6.1/docker-compose-$(uname -s)-$(uname -m) >/usr/local/bin/docker-compose
-	chmod +x /usr/local/bin/docker-compose
+	if ! curl -fsSL https://github.com/docker/compose/releases/download/v2.6.1/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose; then
+		warn "GitHub 下载失败，尝试使用备用源（daocloud）"
+		if ! curl -fsSL https://get.daocloud.io/docker/compose/releases/download/v2.6.1/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose; then
+			error "docker-compose 下载失败，请检查网络或稍后重试"
+			exit 1
+		fi
+	fi
 
+	chmod +x /usr/local/bin/docker-compose
 	if ! command -v docker-compose &>/dev/null; then
 		error "可能由于网络原因或其他未知原因导致docker-compose安装失败，请检查后重试"
 		exit 1
 	fi
 
-	info "docker-compose安装完毕"
-
-	info "2.验证docker-compose是否安装成功..."
-	docker-compose -v
-	info "docker-compose检测完毕"
+	info "docker-compose 安装成功"
+	docker-compose --version
 }
 
 function install_go() {
-	go_version='1.18'
+	default_go_version="1.18"
 
 	if command -v go &>/dev/null; then
-		go_version=$(go version | awk '{print $3}')
-		info "${go_version}已安装"
-		exit 0
+		info "$(go version) 已安装"
+		return
 	fi
 
-	read -p "请输入要安装的Go版本: (e.g. 1.20.4 /默认为${go_version})" input_go_version
+	read -p "请输入要安装的 Go 版本 (默认为 ${default_go_version}，格式如 1.20.4): " input_version
 	if [[ $input_go_version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)*$ ]]; then
-		go_version=$input_go_version
+		go_version="$input_version"
+	else
+		go_version="$default_go_version"
 	fi
 
 	info "开始下载golang ${go_version}"
-	wget -c https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
-
-	if [ $? -ne 0 ]; then
-		error "golang ${go_version}下载失败，请检查版本号或网络后重试"
+	if ! wget -c https://golang.google.cn/dl/go${go_version}.linux-amd64.tar.gz -O /tmp/go${go_version}.tar.gz; then
+		error "无法下载 Go 安装包（https://golang.google.cn），请检查版本号或网络"
 		exit 1
 	fi
 
-	info "创建软连接"
-	ln -s /usr/local/go/bin/* /usr/bin/
+	info "解压并安装 Go ${go_version}..."
+	rm -rf /usr/local/go
+	tar -C /usr/local -xzf /tmp/go${go_version}.tar.gz
+	ln -sf /usr/local/go/bin/go /usr/local/bin/go
+	ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-	go version >/dev/null 2>&1
-	if [ $? -ne 0 ]; then
-		error "go ${go_version}安装失败"
+	if ! command -v go &>/dev/null; then
+		error "Go 安装失败，请检查 tar 解压或路径问题"
 		exit 1
-	else
-		go env -w GOPROXY=https://goproxy.cn
-		info "go ${go_version}安装成功"
 	fi
+
+	go env -w GOPROXY=https://goproxy.cn,direct
+
+	info "Go ${go_version} 安装成功: $(go version)"
 }
 
 function install_java() {
-	apt update
-
 	if command -v java &>/dev/null; then
-		java_version=$(java -version 2>&1 | sed '1!d' | sed -e 's/"//g' | awk '{print $3}')
+		current_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+		info "当前已安装 Java 版本：$current_version"
 
-		info "Java $java_version 已经存在，是否继续安装其他版本？默认为：no. Enter [yes/no]:"
-		read other_version
-
-		if [[ $other_version == "Y" || $other_version == "y" || $other_version == "YES" || $other_version == "yes" ]]; then
-			info "请输入想要安装的openjdk版本 (e.g. 8 or 11):"
-			read installed_version
-			apt-get install -y openjdk-$installed_version-jdk
-
-			if [ $? -ne 0 ]; then
-				error "java安装失败，请检查网络或其他原因后重试"
-				exit 1
-			else
-				info "java $installed_version 安装完成"
-			fi
-		else
-			info "结束安装"
-			exit 0
-		fi
-
-		info "请选择需要使用的Java版本"
-		update-alternatives --config java
-	else
-		info "请输入想要安装的openjdk版本 (e.g. 8 or 11):"
-		read installed_version
-
-		info "开始安装java $installed_version"
-		apt-get install -y openjdk-$installed_version-jdk
-
-		if [ $? -ne 0 ]; then
-			error "java安装失败，请检查网络或其他原因后重试"
-			exit 1
-		else
-			info "java $installed_version 安装完成"
+		read -p "是否继续安装其他版本？默认为 no，输入 yes 安装: " choice
+		if [[ ! "$choice" =~ ^([yY][eE][sS]?|[yY])$ ]]; then
+			info "已取消安装其他版本"
+			return
 		fi
 	fi
 
+	read -p "请输入要安装的 OpenJDK 版本（例如 8 或 11），默认为 11: " input_version
+	installed_version=${input_version:-11}
+
+	if update-alternatives --list java 2>/dev/null | grep -q "java-$installed_version-openjdk"; then
+		info "OpenJDK $installed_version 已经存在，无需重复安装"
+	else
+		info "安装 OpenJDK $installed_version..."
+		apt-get update -q
+		if ! apt-get install -y openjdk-${installed_version}-jdk; then
+			error "Java 安装失败，请检查版本号或网络连接"
+			exit 1
+		fi
+	fi
+
+
+	info "配置默认 Java 版本..."
+	update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/java 1
+	update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/javac 1
+	update-alternatives --set java /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/java
+	update-alternatives --set javac /usr/lib/jvm/java-${installed_version}-openjdk-amd64/bin/javac
+
+	info "当前 Java 版本为：$(java -version 2>&1 | head -n 1)"
 }
 
 function install_ctf_misc_tools() {
-	info "请输入需要安装的工具名，多个工具名请用逗号隔开（例如：binwalk,foremost），支持使用all安装所有工具:"
-	read input
+	info "支持的工具列表如下（可输入 all 全部安装）："
+	list_supported_tools
 
-	input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+	read -p "请输入要安装的工具名，多个工具用英文逗号分隔（如：binwalk,foremost）: " input
+	input=$(echo "$input" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+	[ -z "$input" ] && {
+		error "未输入任何工具名称，已取消安装"
+		return
+	}
+
 	tools=($(echo "$input" | tr ',' ' '))
-	unsupported_tools=()
 	supported_tools=()
+	unsupported_tools=()
 
-	for func_name in $(declare -F | awk '{print $3}' | grep "^install_misc_"); do
-		supported_tools+=("${func_name#install_misc_}")
+	for func in $(declare -F | awk '{print $3}' | grep '^install_misc_'); do
+		supported_tools+=("${func#install_misc_}")
 	done
 
-	info "正在安装某些必要模块"
+	info "正在安装基础依赖..."
 	install_misctool_base
 
-	for tool in "${tools[@]}"; do
-		if [[ "${tools[*]}" =~ "all" ]]; then
-			for tool_name in "${supported_tools[@]}"; do
-				info "正在安装 $tool_name 工具..."
-				if [ "$(type -t install_misc_$tool_name)" = "function" ]; then
-					install_misc_$tool_name
-				else
-					unsupported_tools+=("$tool_name")
-				fi
-			done
-		else
-			if [ "$(type -t install_misc_$tool)" = "function" ]; then
-				info "正在安装 $tool 工具..."
-				install_misc_$tool
+	if [[ " ${tools[*]} " =~ " all " ]]; then
+		for tool in "${supported_tools[@]}"; do
+			info "正在安装 $tool ..."
+			install_misc_"$tool"
+		done
+	else
+		declare -A installed_map=()
+		for tool in "${tools[@]}"; do
+			if [[ -n "${installed_map[$tool]}" ]]; then
+				continue
+			fi
+			installed_map[$tool]=1
+
+			if [[ " ${supported_tools[*]} " =~ " $tool " ]]; then
+				info "正在安装 $tool ..."
+				install_misc_"$tool"
 			else
 				unsupported_tools+=("$tool")
 			fi
-		fi
-	done
+		done
+	fi
 
-	if [ ${#unsupported_tools[@]} -ne 0 ]; then
-		error "暂不支持安装以下工具："
+	if [[ ${#unsupported_tools[@]} -ne 0 ]]; then
+		error "以下工具暂不支持："
 		for tool in "${unsupported_tools[@]}"; do
 			error "- $tool"
 		done
-		list_supported_tools
 	fi
 
-	if [ ! -d "$misc_tools_dir" ]; then
-		mkdir -p "$misc_tools_dir"
-	fi
+	[ ! -d "$misc_tools_dir" ] && mkdir -p "$misc_tools_dir"
 }
 
 function list_supported_tools {
-	info "支持的工具列表:"
 	for func_name in $(declare -F | awk '{print $3}' | grep "^install_misc_"); do
 		info "- ${func_name#install_misc_}"
 	done
 }
 
 function install_misctool_base() {
-	apt-get install -y git gcc cmake python-dev python3-dev libbz2-dev
+	info "安装系统依赖包"
+	apt-get update -q
+	apt-get install -y git gcc cmake python-dev python3-dev libbz2-dev python-tk
 
 	if ! command -v python2 &>/dev/null; then
-		info "开始安装python2"
-		apt install -y python2
-		info "python2安装结束"
-	fi
-
-	if ! command -v pip2 &>/dev/null; then
-		info "开始安装pip2"
-		wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
-		python2 get-pip.py
-		rm -rf get-pip.py
-		info "pip2安装结束"
-	fi
-
-	if ! python2 -c "import numpy" &>/dev/null; then
-		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy
-	fi
-
-	if ! python2 -c "import matplotlib" &>/dev/null; then
-		apt-get install -y python-tk
-		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple matplotlib
-	fi
-
-	if ! python2 -c "import PIL" &>/dev/null; then
-		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple pillow
-	fi
-
-	if ! python2 -c "import enum" &>/dev/null; then
-		pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple enum
-	fi
-
-	if ! command -v pip3 &>/dev/null; then
-		info "开始安装pip3"
-		apt-get install -y python3-distutils
-		wget https://bootstrap.pypa.io/pip/get-pip.py
-		python3 get-pip.py
-		rm -rf get-pip.py
-		if command -v pip3 &>/dev/null; then
-			info "pip3安装完成"
-		else
-			apt install -y python3-pip
-			info "pip3安装完成"
+		info "安装 python2..."
+		if ! apt-get install -y python2; then
+			error "python2 安装失败，请检查网络或软件源配置"
+			return
 		fi
 	fi
 
-	if ! python3 -c "import numpy" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy
+	if ! command -v pip2 &>/dev/null; then
+		info "安装 pip2..."
+		wget -q https://bootstrap.pypa.io/pip/2.7/get-pip.py -O /tmp/get-pip2.py
+		python2 /tmp/get-pip2.py && rm -f /tmp/get-pip2.py
 	fi
 
-	if ! python3 -c "import cv2" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple opencv-python
+	declare -A py2_modules_map=(
+		[numpy]=numpy
+		[matplotlib]=matplotlib
+		[pillow]=PIL
+		[enum]=enum
+		[setuptools]=setuptools
+		[distorm3]=distorm3
+	)
+
+	for pkg in "${!py2_modules_map[@]}"; do
+		mod="${py2_modules_map[$pkg]}"
+		if ! python2 -c "import ${mod}" &>/dev/null; then
+			info "安装 Python2 模块：$pkg (import 名: $mod)"
+			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade "$pkg"
+		fi
+	done
+
+
+
+	if ! command -v pip3 &>/dev/null; then
+		info "安装 pip3..."
+		apt-get install -y python3-distutils
+		wget -q https://bootstrap.pypa.io/pip/get-pip.py -O /tmp/get-pip3.py
+		python3 /tmp/get-pip3.py && rm -f /tmp/get-pip3.py
 	fi
 
-	if ! python3 -c "import matplotlib" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple matplotlib
+	if ! command -v pip3 &>/dev/null; then
+		apt-get install -y -q python3-pip
 	fi
 
-	if ! python3 -c "import pytest" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pytest
-	fi
+	declare -A py3_modules_map=(
+		[numpy]=numpy
+		[opencv-python]=cv2
+		[matplotlib]=matplotlib
+		[pytest]=pytest
+		[pillow]=PIL
+		[pyshark]=pyshark
+		[yara-python]=yara
+	)
 
-	if ! python3 -c "import PIL" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pillow
-	fi
-
-	if ! python3 -c "import pyshark" &>/dev/null; then
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pyshark
-	fi
+	for pkg in "${!py3_modules_map[@]}"; do
+		mod="${py3_modules_map[$pkg]}"
+		if ! python3 -c "import ${mod}" &>/dev/null; then
+			info "安装 Python3 模块：$pkg (import 名: $mod)"
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade "$pkg"
+		fi
+	done
 }
 
+# apt install
 function install_misc_exif() {
 	if command -v exiftool &>/dev/null; then
-		info "exiftool 已经安装"
+		info "exiftool 已经安装，版本：$(exiftool -ver 2>/dev/null)"
+		return
+	fi
+
+	info "开始安装 exiftool..."
+	if apt-get install -y exiftool; then
+		if command -v exiftool &>/dev/null; then
+			info "exiftool 安装完成，版本：$(exiftool -ver 2>/dev/null)"
+		else
+			error "exiftool 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		sudo apt install -y exiftool
-		info "exiftool 安装完成"
+		error "exiftool 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_binwalk() {
 	if command -v binwalk &>/dev/null; then
 		info "binwalk 已经安装"
+		return
+	fi
+
+	info "开始安装 binwalk..."
+	if apt-get install -y binwalk; then
+		if command -v binwalk &>/dev/null; then
+			info "binwalk 安装完成"
+		else
+			error "binwalk 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		sudo apt-get install -y binwalk
-		info "binwalk 安装完成"
+		error "binwalk 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_foremost() {
 	if command -v foremost &>/dev/null; then
 		info "foremost 已经安装"
-	else
-		sudo apt-get install -y foremost
-		info "foremost 安装完成"
+		return
 	fi
-}
 
-function install_misc_cloacked-pixel() {
-	if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
-		info "clocked-pixel已安装"
-	else
-		info "开始安装cloacked-pixel"
-		git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel
-		info "cloacked-pixel安装完成"
-	fi
-}
-
-function install_misc_steghide() {
-	if command -v steghide &>/dev/null; then
-		info "steghide已安装"
-	else
-		info "开始安装steghide"
-		apt install -y steghide
-		info "steghide安装成功"
-	fi
-}
-
-function install_misc_stegseek() {
-	if command -v stegseek &>/dev/null; then
-		info "stegseek已安装"
-	else
-		info "开始安装stegseek"
-		wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb
-		apt install -y ./stegseek_0.6-1.deb
-		rm -rf stegseek_0.6-1.deb
-
-		if [ -f /usr/share/wordlists/rockyou.txt ]; then
-			info "stegseek安装结束"
+	info "开始安装 foremost..."
+	if apt-get install -y foremost; then
+		if command -v foremost &>/dev/null; then
+			info "foremost 安装完成"
 		else
-			wget https://gitee.com/lewiserii/rockyou.txt/releases/download/rockyou/rockyou.zip
-			unzip rockyou.zip
-			rm -rf rockyou.zip
-			mkdir /usr/share/wordlists
-			mv rockyou.txt /usr/share/wordlists/rockyou.txt
-		fi
-
-		info "stegseek安装结束"
-	fi
-}
-
-function install_misc_f5-steganography() {
-	if [ -f ./$misc_tools_dir/F5-steganography/Extract.java ]; then
-		info "F5-steganography已安装"
-	else
-		info "开始安装F5-steganography"
-		git clone https://github.com/matthewgao/F5-steganography $misc_tools_dir/F5-steganography
-		info "F5-steganography安装结束"
-	fi
-}
-
-function install_misc_zsteg() {
-	if command -v ruby &>/dev/null; then
-		if command -v gem &>/dev/null; then
-			if command -v zsteg &>/dev/null; then
-				info "zsteg已安装"
-			else
-				info "开始安装zsteg"
-				gem install zsteg
-				info "zsteg安装完成"
-			fi
-		else
-			info "未检测到gem命令，开始安装gem和zsteg"
-			apt instal -y gem
-			gem install zsteg
-			info "zsteg和gem安装完成"
+			error "foremost 安装过程未报错，但命令未找到，可能路径未正确配置"
 		fi
 	else
-		info "未检测到ruby环境，开始安装ruby,gem和zsteg"
-		apt install -y ruby
-		apt install -y gem
-		gem install zsteg
-		info "zsteg,gem和ruby安装完成"
+		error "foremost 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_extundelete() {
 	if command -v extundelete &>/dev/null; then
-		info "extundelete已安装"
+		info "extundelete 已经安装"
+		return
+	fi
+
+	info "开始安装 extundelete..."
+	if apt-get install -y extundelete; then
+		if command -v extundelete &>/dev/null; then
+			info "extundelete 安装完成"
+		else
+			error "extundelete 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		info "开始安装extundelete"
-		apt-get install -y extundelete
-		info "extundelete安装完成"
+		error "extundelete 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_outguess() {
 	if command -v outguess &>/dev/null; then
-		info "outguess已安装"
-	else
-		info "开始安装outguess"
-		apt-get install -y outguess
-		info "outguess安装完成"
+		info "outguess 已经安装"
+		return
 	fi
-}
 
-function install_misc_bkcrack() {
-	if [ -f ./$misc_tools_dir/bkcrack-1.5.0-Linux/bkcrack ]; then
-		info "bkcrack已安装"
+	info "开始安装 outguess..."
+	if apt-get install -y outguess; then
+		if command -v outguess &>/dev/null; then
+			info "outguess 安装完成"
+		else
+			error "outguess 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		info "开始安装bkcrack"
-		wget https://github.com/kimci86/bkcrack/releases/download/v1.5.0/bkcrack-1.5.0-Linux.tar.gz
-		tar xf bkcrack-1.5.0-Linux.tar.gz -C $misc_tools_dir/
-		rm -rf bkcrack-1.5.0-Linux.tar.gz
-		info "bkcrack安装成功"
+		error "outguess 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_gnuplot() {
 	if command -v gnuplot &>/dev/null; then
-		info "gnuplot已安装"
-	else
-		info "开始安装gnuplot"
-		apt install -y gnuplot
-		info "gnuplot安装完成"
+		info "gnuplot 已经安装"
+		return
 	fi
-}
 
-function install_misc_blindwatermark() {
-	if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
-		info "BlindWaterMark已安装"
+	info "开始安装 gnuplot..."
+	if apt-get install -y gnuplot; then
+		if command -v gnuplot &>/dev/null; then
+			info "gnuplot 安装完成"
+		else
+			error "gnuplot 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		info "开始安装BlindWaterMark"
-		git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark
-		info "BlindWaterMark安装完成"
+		error "gnuplot 安装失败，请检查网络或软件源配置"
 	fi
 }
 
 function install_misc_montage() {
 	if command -v montage &>/dev/null; then
-		info "montage已安装"
+		info "montage 已经安装"
+		return
+	fi
+
+	info "开始安装 montage..."
+	if apt-get install -y graphicsmagick-imagemagick-compat; then
+		if command -v montage &>/dev/null; then
+			info "montage 安装完成"
+		else
+			error "montage 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		info "开始安装montage"
-		apt-get install -y graphicsmagick-imagemagick-compat
-		info "montage安装完成"
+		error "montage 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_webp() {
+	if command -v dwebp &>/dev/null; then
+		info "webp 已经安装"
+		return
+	fi
+
+	info "开始安装 webp..."
+	if apt-get install -y webp; then
+		if command -v dwebp &>/dev/null; then
+			info "webp 安装完成"
+		else
+			error "webp 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "webp 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_minimodem() {
+	if command -v minimodem &>/dev/null; then
+		info "minimodem 已经安装"
+		return
+	fi
+
+	info "开始安装 minimodem..."
+	if apt-get install -y minimodem; then
+		if command -v minimodem &>/dev/null; then
+			info "minimodem 安装完成"
+		else
+			error "minimodem 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "minimodem 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_dtmf2num() {
+	if command -v dtmf2num &>/dev/null; then
+		info "dtmf2num 已经安装"
+		return
+	fi
+
+	info "开始安装 dtmf2num..."
+	if apt-get install -y dtmf2num; then
+		if command -v dtmf2num &>/dev/null; then
+			info "dtmf2num 安装完成"
+		else
+			error "dtmf2num 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "dtmf2num 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_wireshark() {
+	if command -v wireshark &>/dev/null; then
+		info "wireshark 已经安装"
+		return
+	fi
+
+	info "开始安装 wireshark..."
+	if apt-get install -y wireshark tshark; then
+		if command -v wireshark &>/dev/null; then
+			info "wireshark 安装完成"
+		else
+			error "wireshark 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "wireshark 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_identify() {
+	if command -v identify &>/dev/null; then
+		info "identify 已经安装"
+		return
+	fi
+
+	info "开始安装 identify..."
+	if apt-get install -y imagemagick; then
+		if command -v identify &>/dev/null; then
+			info "identify 安装完成"
+		else
+			error "identify 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "identify 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_steghide() {
+	if command -v steghide &>/dev/null; then
+		info "steghide 已经安装"
+		return
+	fi
+
+	info "开始安装 steghide..."
+	if apt-get install -y steghide; then
+		if command -v steghide &>/dev/null; then
+			info "steghide 安装完成"
+		else
+			error "steghide 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "steghide 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_stegseek() {
+	if command -v stegseek &>/dev/null; then
+		info "stegseek 已经安装"
+		return
+	fi
+
+	info "开始安装 stegseek..."
+	if wget https://github.com/RickdeJager/stegseek/releases/download/v0.6/stegseek_0.6-1.deb && apt-get install -y ./stegseek_0.6-1.deb; then
+		rm -rf stegseek_0.6-1.deb
+
+		if command -v stegseek &>/dev/null; then
+			if [ -f /usr/share/wordlists/rockyou.txt ]; then
+				info "stegseek 安装完成"
+			else
+				info "下载 rockyou.txt 字典文件..."
+				if wget https://gitee.com/lewiserii/rockyou.txt/releases/download/rockyou/rockyou.zip && unzip rockyou.zip; then
+					rm -rf rockyou.zip
+					mkdir -p /usr/share/wordlists
+					mv rockyou.txt /usr/share/wordlists/rockyou.txt
+					info "stegseek 安装完成，字典文件已配置"
+				else
+					error "rockyou.txt 字典文件下载失败"
+				fi
+			fi
+		else
+			error "stegseek 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "stegseek 安装失败，请检查网络或软件源配置"
+	fi
+}
+
+function install_misc_zsteg() {
+	if command -v zsteg &>/dev/null; then
+		info "zsteg 已经安装"
+		return
+	fi
+
+	info "开始安装 zsteg..."
+
+	if ! command -v ruby &>/dev/null; then
+		info "安装 ruby 环境..."
+		if ! apt-get install -y ruby; then
+			error "ruby 安装失败，请检查网络或软件源配置"
+			return
+		fi
+	fi
+
+	if ! command -v gem &>/dev/null; then
+		info "安装 gem 包管理器..."
+		if ! apt-get install -y gem; then
+			error "gem 安装失败，请检查网络或软件源配置"
+			return
+		fi
+	fi
+
+	if gem install zsteg; then
+		if command -v zsteg &>/dev/null; then
+			info "zsteg 安装完成"
+		else
+			error "zsteg 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
+	else
+		error "zsteg 安装失败，请检查gem源配置"
+	fi
+}
+
+# git clone
+function install_misc_cloacked-pixel() {
+	if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
+		info "cloacked-pixel 已经安装"
+		return
+	fi
+
+	info "开始安装 cloacked-pixel..."
+	if git clone https://github.com/livz/cloacked-pixel $misc_tools_dir/cloacked-pixel; then
+		if [ -f $misc_tools_dir/cloacked-pixel/lsb.py ]; then
+			info "cloacked-pixel 安装完成"
+		else
+			error "cloacked-pixel 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "cloacked-pixel 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_f5-steganography() {
+	if [ -f ./$misc_tools_dir/F5-steganography/Extract.java ]; then
+		info "F5-steganography 已经安装"
+		return
+	fi
+
+	info "开始安装 F5-steganography..."
+	if git clone https://github.com/matthewgao/F5-steganography $misc_tools_dir/F5-steganography; then
+		if [ -f ./$misc_tools_dir/F5-steganography/Extract.java ]; then
+			info "F5-steganography 安装完成"
+		else
+			error "F5-steganography 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "F5-steganography 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_blindwatermark() {
+	if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
+		info "BlindWaterMark 已经安装"
+		return
+	fi
+
+	info "开始安装 BlindWaterMark..."
+	if git clone https://github.com/chishaxie/BlindWaterMark $misc_tools_dir/BlindWaterMark; then
+		if [ -f ./$misc_tools_dir/BlindWaterMark/bwm.py ]; then
+			info "BlindWaterMark 安装完成"
+		else
+			error "BlindWaterMark 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "BlindWaterMark 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_volatility2() {
+	if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
+		info "volatility2已安装"
+		return
+	fi
+
+	info "开始安装 volatility2..."
+	if git clone https://github.com/volatilityfoundation/volatility $misc_tools_dir/volatility2; then
+		if ! python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
+			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycrypto
+		fi
+		cd $misc_tools_dir/volatility2 && python2 setup.py install && cd -
+
+		if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
+			info "volatility2 安装完成"
+		else
+			error "volatility2 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "volatility2 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_volatility3() {
+	if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
+		info "volatility3已安装"
+		return
+	fi
+
+	info "开始安装 volatility3..."
+	if git clone https://github.com/volatilityfoundation/volatility3 $misc_tools_dir/volatility3; then
+		if python3 -c "import setuptools" &>/dev/null; then
+			if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
+				pip3 uninstall -y setuptools
+				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
+			fi
+		else
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
+		fi
+
+		if ! python3 -c "from Crypto.Cipher import AES" &>/dev/null; then
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome
+		fi
+
+		cd $misc_tools_dir/volatility3 && pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+		pip3 install . && python3 setup.py install && cd -
+
+		if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
+			info "volatility3 安装完成"
+		else
+			error "volatility3 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "volatility3 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_usb-mouse-pcap-visualizer() {
+	if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ]; then
+		info "USB-Mouse-Pcap-Visualizer 已经安装"
+		return
+	fi
+
+	info "开始安装 USB-Mouse-Pcap-Visualizer..."
+	if git clone https://github.com/WangYihang/USB-Mouse-Pcap-Visualizer $misc_tools_dir/USB-Mouse-Pcap-Visualizer; then
+		if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ]; then
+			info "USB-Mouse-Pcap-Visualizer 安装完成"
+		else
+			error "USB-Mouse-Pcap-Visualizer 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "USB-Mouse-Pcap-Visualizer 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_usbkeyboarddatahacker() {
+	if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ]; then
+		info "UsbKeyboardDataHacker 已经安装"
+		return
+	fi
+
+	info "开始安装 UsbKeyboardDataHacker..."
+	if git clone https://github.com/WangYihang/UsbKeyboardDataHacker $misc_tools_dir/UsbKeyboardDataHacker; then
+		if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ]; then
+			info "UsbKeyboardDataHacker 安装完成"
+		else
+			error "UsbKeyboardDataHacker 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "UsbKeyboardDataHacker 安装失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_sstv() {
+	if command -v sstv &>/dev/null; then
+		info "sstv 已经安装"
+		return
+	fi
+
+	info "开始安装 sstv..."
+
+	if ! pip3 list | grep -q "scipy"; then
+		info "安装 scipy 依赖..."
+		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy; then
+			error "scipy 安装失败，请检查网络或pip源配置"
+			return
+		fi
+	fi
+
+	if ! pip3 list | grep -q "cffi"; then
+		info "安装 cffi 依赖..."
+		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi; then
+			error "cffi 安装失败，请检查网络或pip源配置"
+			return
+		fi
+	fi
+
+	if git clone https://github.com/colaclanth/sstv.git $misc_tools_dir/sstv; then
+		if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
+			pip3 uninstall -y setuptools
+			pip3 install setuptools==49.2.1
+		fi
+
+		cd $misc_tools_dir/sstv
+		if python3 setup.py install; then
+			cd -
+			rm -rf $misc_tools_dir/sstv
+			if command -v sstv &>/dev/null; then
+				info "sstv 安装完成"
+			else
+				error "sstv 安装过程未报错，但命令未找到，可能路径未正确配置"
+			fi
+		else
+			cd -
+			rm -rf $misc_tools_dir/sstv
+			error "sstv 编译安装失败，请检查Python环境"
+		fi
+	else
+		error "sstv 下载失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_misc_pycdc() {
+	if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+		info "pycdc 已经安装"
+		return
+	fi
+
+	info "开始安装 pycdc..."
+	if git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc; then
+		cd $misc_tools_dir/pycdc
+		if cmake . && make; then
+			cd -
+			if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
+				info "pycdc 安装完成"
+			else
+				error "pycdc 编译完成，但可执行文件未找到，可能编译失败"
+			fi
+		else
+			cd -
+			error "pycdc 编译失败，请检查cmake和make环境"
+		fi
+	else
+		error "pycdc 安装失败，请检查网络连接或GitHub访问"
 	fi
 }
 
@@ -542,61 +936,6 @@ function install_misc_gaps() {
 			error "gaps安装失败,请检查后重试"
 			rm -rf $misc_tools_dir/gaps
 		fi
-	fi
-}
-
-function install_misc_volatility2() {
-	if [ -f ./$misc_tools_dir/volatility2/build/scripts-2.7/vol.py ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
-		info "volatility2已安装"
-	else
-		info "开始安装volatility2"
-		git clone https://github.com/volatilityfoundation/volatility $misc_tools_dir/volatility2
-
-		if ! python2 -c "import setuptools" &>/dev/null; then
-			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools
-		fi
-
-		if ! python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
-			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycrypto
-		fi
-
-		if ! python2 -c "import distorm3" &>/dev/null; then
-			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple distorm3
-		fi
-
-		cd $misc_tools_dir/volatility2 && python2 setup.py install && cd -
-		info "volatility2安装完成"
-	fi
-}
-
-function install_misc_volatility3() {
-	if [ -f ./$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py ]; then
-		info "volatility3已安装"
-	else
-		info "开始安装volatility3"
-		rm -rf $misc_tools_dir/volatility3/
-		git clone https://github.com/volatilityfoundation/volatility3 $misc_tools_dir/volatility3
-
-		if python3 -c "import setuptools" &>/dev/null; then
-			if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
-				pip3 uninstall -y setuptools
-				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
-			fi
-		else
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
-		fi
-
-		if ! python3 -c "from Crypto.Cipher import AES" &>/dev/null; then
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome
-		fi
-
-		if ! python3 -c "import yara" &>/dev/null; then
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple yara-python
-		fi
-
-		cd $misc_tools_dir/volatility3 && pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-		pip3 install . && python3 setup.py install && cd -
-		info "volatility3安装完成"
 	fi
 }
 
@@ -630,155 +969,74 @@ function install_misc_dwarf2json() {
 	fi
 }
 
-function install_misc_webp() {
-	if command -v dwebp &>/dev/null; then
-		info "webp已安装"
-	else
-		info "开始安装webp"
-		apt install -y webp
-		info "webp安装完成"
+# wget
+function install_misc_bkcrack() {
+	if [ -f ./$misc_tools_dir/bkcrack-1.5.0-Linux/bkcrack ]; then
+		info "bkcrack 已经安装"
+		return
 	fi
-}
 
-function install_misc_stegpy() {
-	if pip3 list | grep "stegpy" &>/dev/null; then
-		info "stegpy已安装"
-	else
-		info "开始安装stegpy"
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy
-		info "stegpy安装完成"
-	fi
-}
-
-function install_misc_minimodem() {
-	if command -v minimodem &>/dev/null; then
-		info "minimodem已安装"
-	else
-		info "开始安装minimodem"
-		apt install -y minimodem
-		info "minimodem安装完成"
-	fi
-}
-
-function install_misc_dtmf2num() {
-	if command -v dtmf2num &>/dev/null; then
-		info "dtmf2num已安装"
-	else
-		info "开始安装dtmf2num"
-		apt install -y dtmf2num
-		info "dtmf2num安装完成"
-	fi
-}
-
-function install_misc_sstv() {
-	if command -v sstv &>/dev/null; then
-		info "sstv已安装"
-	else
-		if pip3 list | grep -q "scipy"; then
-			info "scipy已安装"
+	info "开始安装 bkcrack..."
+	if wget https://github.com/kimci86/bkcrack/releases/download/v1.5.0/bkcrack-1.5.0-Linux.tar.gz && tar xf bkcrack-1.5.0-Linux.tar.gz -C $misc_tools_dir/; then
+		rm -rf bkcrack-1.5.0-Linux.tar.gz
+		if [ -f ./$misc_tools_dir/bkcrack-1.5.0-Linux/bkcrack ]; then
+			info "bkcrack 安装完成"
 		else
-			info "开始安装scipy"
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy
-			info "scipy安装完成"
+			error "bkcrack 下载完成，但可执行文件未找到，可能压缩包结构已变更"
 		fi
-
-		if pip3 list | grep -q "cffi"; then
-			info "cffi已安装"
-		else
-			info "开始安装cffi"
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi
-			info "cffi安装完成"
-		fi
-
-		git clone https://github.com/colaclanth/sstv.git $misc_tools_dir/sstv
-
-		if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
-			pip3 uninstall -y setuptools
-			pip3 install setuptools==49.2.1
-		fi
-
-		cd $misc_tools_dir/sstv && python3 setup.py install && cd -
-
-		if command -v sstv &>/dev/null; then
-			info "sstv安装成功"
-			rm -rf $misc_tools_dir/sstv
-		else
-			error "sstv安装失败"
-			rm -rf $misc_tools_dir/sstv
-		fi
-	fi
-}
-
-function install_misc_usb-mouse-pcap-visualizer() {
-	if [ -f ./$misc_tools_dir/USB-Mouse-Pcap-Visualizer/usb-mouse-pcap-visualizer.py ]; then
-		info "USB-Mouse-Pcap-Visualizer脚本已存在"
 	else
-		info "开始下载USB-Mouse-Pcap-Visualizer脚本"
-		git clone https://github.com/WangYihang/USB-Mouse-Pcap-Visualizer $misc_tools_dir/USB-Mouse-Pcap-Visualizer
-		info "USB-Mouse-Pcap-Visualizer脚本已下载"
-	fi
-}
-
-function install_misc_usbkeyboarddatahacker() {
-	if [ -f ./$misc_tools_dir/UsbKeyboardDataHacker/UsbKeyboardDataHacker.py ]; then
-		info "UsbKeyboardDataHacker脚本已存在"
-	else
-		info "开始下载UsbKeyboardDataHacker脚本"
-		git clone https://github.com/WangYihang/UsbKeyboardDataHacker $misc_tools_dir/UsbKeyboardDataHacker
-		info "UsbKeyboardDataHacker脚本已下载"
-	fi
-}
-
-function install_misc_wireshark() {
-	if command -v wireshark &>/dev/null; then
-		info "wireshark已安装"
-	else
-		info "开始安装wireshark"
-		apt install -y wireshark tshark
-		info "wireshark安装完成"
-	fi
-}
-
-function install_misc_pycdc() {
-	if [ -f ./$misc_tools_dir/pycdc/pycdc ]; then
-		info "pycdc已存在"
-	else
-		info "开始下载pycdc脚本"
-		git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc
-		cd $misc_tools_dir/pycdc && cmake . && make && cd -
-		info "pycdc已安装"
+		error "bkcrack 安装失败，请检查网络连接或GitHub访问"
 	fi
 }
 
 function install_misc_stegosaurus() {
 	if command -v stegosaurus &>/dev/null; then
-		info "stegosaurus已存在"
+		info "stegosaurus 已经安装"
+		return
+	fi
+
+	info "开始安装 stegosaurus..."
+	if wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus && chmod +x /usr/local/bin/stegosaurus; then
+		if command -v stegosaurus &>/dev/null; then
+			info "stegosaurus 安装完成"
+		else
+			error "stegosaurus 安装过程未报错，但命令未找到，可能路径未正确配置"
+		fi
 	else
-		info "开始下载stegosaurus"
-		wget https://github.com/AngelKitty/stegosaurus/releases/download/1.0/stegosaurus -O /usr/local/bin/stegosaurus
-		chmod +x /usr/local/bin/stegosaurus
-		info "stegosaurus已安装"
+		error "stegosaurus 安装失败，请检查网络连接"
 	fi
 }
 
-function install_misc_identify() {
-	if command -v identify &>/dev/null; then
-		info "identify已存在"
+# pip
+function install_misc_stegpy() {
+	if pip3 list | grep "stegpy" &>/dev/null; then
+		info "stegpy 已经安装"
+		return
+	fi
+
+	info "开始安装 stegpy..."
+	if pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy; then
+		if pip3 list | grep "stegpy" &>/dev/null; then
+			info "stegpy 安装完成"
+		else
+			error "stegpy 安装过程未报错，但模块未找到，可能安装失败"
+		fi
 	else
-		info "开始安装identify"
-		apt install -y imagemagick
-		info "identify已安装"
+		error "stegpy 安装失败，请检查网络或pip源配置"
 	fi
 }
 
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
-	echo "		basics				基础配置(换源，vim，ssh等，适合刚安装完的裸机使用)"
+	echo "		base				基础配置"
 	echo "		docker				安装docker"
 	echo "		docker-compose			安装docker-compose"
 	echo "		go				安装golang"
 	echo "		java				安装java"
 	echo "		misc-tools			安装misc工具"
+	echo "		pwntools			安装pwn工具"
+	echo
+	echo "示例: ./auto_deploy.sh base docker"
 }
 
 function main() {
@@ -787,28 +1045,28 @@ function main() {
 		exit 1
 	}
 
-	if [[ -z $* || $* == "-h" || $* == "-help" ]]; then
+	[[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]] && {
 		usage
 		return
+	}
+
+	read -p "警告，该脚本可能会对您的系统进行某些更改和删除操作，继续运行吗？默认为：yes. Enter [yes/no]：" is_is
+	if [[ $is_is == "no" || $is_is == "NO" ]]; then
+		info "取消安装"
+		exit 0
 	fi
 
-	for i in $*; do
-		read -p "警告，该脚本可能会对您的系统进行某些更改和删除操作，继续运行吗？默认为：yes. Enter [yes/no]：" is_is
-		if [[ $is_is == "no" || $is_is == "NO" ]]; then
-			info "取消安装"
-			exit 0
-		fi
-
+	for i in "$@"; do
 		case $i in
-		basics) install_basics ;;
-		docker) install_docker ;;
-		docker-compose) install_docker-compose ;;
-		go) install_go ;;
-		java) install_java ;;
-		misc-tools) install_ctf_misc_tools ;;
-		*) info "没有这个参数^_^" ;;
+			base) install_basics ;;
+			docker) install_docker ;;
+			docker-compose) install_docker-compose ;;
+			go) install_go ;;
+			java) install_java ;;
+			misc-tools) install_ctf_misc_tools ;;
+			*) info "没有这个参数^_^" ;;
 		esac
 	done
 }
 
-main $*
+main "$@"
