@@ -33,7 +33,7 @@ function install_basics() {
 		fi
 
 		ubuntu_lsb=$(lsb_release -c -s)
-		src_url="https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-${ubuntu_lsb}.sources"
+		src_url="https://mirrors.ustc.edu.cn/repogen/conf/ubuntu-https-4-${ubuntu_lsb}"
 
 		if curl -fsSL "$src_url" -o /etc/apt/sources.list; then
 			info "USTC 源配置成功"
