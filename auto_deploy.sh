@@ -278,22 +278,21 @@ function install_pwntools() {
 		info "ropper 已安装"
 	fi
 
-	ruby_ver=$(ruby -v | awk '{print $2}')
-	ruby_major=$(echo "$ruby_ver" | cut -d. -f1)
-	ruby_minor=$(echo "$ruby_ver" | cut -d. -f2)
-
-	if [[ "$ruby_major" -lt 3 || ( "$ruby_major" -eq 3 && "$ruby_minor" -lt 1 ) ]]; then
-		info "当前 Ruby 版本为 $ruby_ver，安装 one_gadget 兼容版本..."
-		gem install elftools -v 1.2.0
-		gem install one_gadget -v 1.7.2
-	else
-		info "Ruby 版本满足要求，安装最新版 one_gadget"
-		gem install one_gadget
-	fi
-
 	if ! command -v one_gadget &>/dev/null; then
-		info "正在安装 one_gadget ..."
-		gem install one_gadget
+		info "安装 one_gadget ..."
+
+		ruby_ver=$(ruby -v | awk '{print $2}')
+		ruby_major=$(echo "$ruby_ver" | cut -d. -f1)
+		ruby_minor=$(echo "$ruby_ver" | cut -d. -f2)
+
+		if [[ "$ruby_major" -lt 3 || ( "$ruby_major" -eq 3 && "$ruby_minor" -lt 1 ) ]]; then
+			info "当前 Ruby 版本为 $ruby_ver，安装 one_gadget 兼容版本..."
+			gem install elftools -v 1.2.0
+			gem install one_gadget -v 1.7.2
+		else
+			info "Ruby 版本满足要求，安装最新版 one_gadget"
+			gem install one_gadget
+		fi
 	else
 		info "one_gadget 已安装"
 	fi
