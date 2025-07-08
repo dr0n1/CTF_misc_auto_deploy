@@ -3,6 +3,7 @@
 # Version：4.1 beta
 # Email: 1930774374@qq.com
 
+ubuntu_version=$(lsb_release -rs | cut -d. -f1)
 misc_tools_dir="misc_tools"
 pwn_tools_dir="pwn_tools"
 COLOR_G="\x1b[0;32m"
@@ -262,7 +263,11 @@ function install_pwntools() {
 	info "开始安装 pwntools 及常用PWN工具"
 
 	install_misctool_base
-	apt-get install -y libssl-dev libffi-dev build-essential gdb ruby ruby-dev build-essential qemu qemu-user qemu-user-static
+	if [[ $ubuntu_version -le 22 ]]; then
+		apt-get install -y libssl-dev libffi-dev build-essential gdb ruby ruby-full ruby-dev build-essential qemu qemu-user qemu-user-static
+	else
+		apt-get install -y libssl-dev libffi-dev build-essential gdb ruby ruby-full ruby-dev build-essential qemu-user qemu-user-static
+	fi
 
 	if ! python3 -c "import pwn" &>/dev/null; then
 		info "正在安装 pwntools ..."
@@ -396,14 +401,43 @@ function list_supported_tools {
 function install_misctool_base() {
 	info "安装系统依赖包"
 	apt-get update -q
-	apt-get install -y git gcc cmake python2-dev python3-dev libbz2-dev python-tk
+	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev  tk-dev libgdbm-dev libc6-dev libffi-dev
 
-	if ! command -v python2 &>/dev/null; then
-		info "安装 python2..."
-		if ! apt-get install -y python2; then
-			error "python2 安装失败，请检查网络或软件源配置"
-			return
+	if [[ $ubuntu_version -le 22 ]]; then
+		apt-get install -y python2-dev python-tk
+		if ! command -v python2 &>/dev/null; then
+			info "安装 python2..."
+			if ! apt-get install -y python2; then
+				error "python2 安装失败，请检查网络或软件源配置"
+				return
+			fi
 		fi
+	else
+		if ! command -v python2 &>/dev/null; then
+			info "Ubuntu $ubuntu_version 未检测到 python2，开始从源码安装 Python 2.7.18"
+
+			tmp_dir=$(mktemp -d)
+			pushd "$tmp_dir" >/dev/null
+
+			wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz
+			tar -xzf Python-2.7.18.tgz
+			pushd Python-2.7.18 >/dev/null
+
+			./configure --enable-optimizations
+			make altinstall
+
+			ln -sfn '/usr/local/bin/python2.7' '/usr/bin/python2'
+
+			popd >/dev/null
+			popd >/dev/null
+			rm -rf "$tmp_dir"
+
+			if ! command -v python2 &>/dev/null; then
+				error "Python2 安装失败，请检查编译日志"
+				return
+			fi
+		fi
+
 	fi
 
 	if ! command -v pip2 &>/dev/null; then
