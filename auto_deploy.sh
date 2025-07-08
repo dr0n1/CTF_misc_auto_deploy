@@ -4,6 +4,7 @@
 # Email: 1930774374@qq.com
 
 misc_tools_dir="misc_tools"
+pwn_tools_dir="pwn_tools"
 COLOR_G="\x1b[0;32m"
 COLOR_R="\x1b[0;31m"
 COLOR_Y="\x1b[0;33m"
@@ -258,7 +259,66 @@ function install_java() {
 }
 
 function install_pwntools() {
-	echo 1
+	info "开始安装 pwntools 及常用PWN工具"
+
+	install_misctool_base
+	apt-get install -y libssl-dev libffi-dev build-essential gdb ruby ruby-dev build-essential qemu qemu-user qemu-user-static
+
+	if ! python3 -c "import pwn" &>/dev/null; then
+		info "正在安装 pwntools ..."
+		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pwntools
+	else
+		info "pwntools 已安装"
+	fi
+
+	if ! command -v ropper &>/dev/null; then
+		info "正在安装 ropper ..."
+		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple ropper
+	else
+		info "ropper 已安装"
+	fi
+
+	if ! command -v one_gadget &>/dev/null; then
+		info "正在安装 one_gadget ..."
+		gem install one_gadget
+	else
+		info "one_gadget 已安装"
+	fi
+
+	if [ ! -d "$pwn_tools_dir/pwndbg" ]; then
+		info "正在安装 pwndbg ..."
+		git clone https://github.com/pwndbg/pwndbg "$pwn_tools_dir/pwndbg"
+		pushd "$pwn_tools_dir/pwndbg" >/dev/null
+		./setup.sh
+		popd >/dev/null
+	else
+		info "pwndbg 已安装"
+	fi
+
+	if [ ! -f "$HOME/.gdbinit-gef.py" ]; then
+		info "正在安装 gef ..."
+		curl -s -L -o "$HOME/.gdbinit-gef.py" https://gef.blah.cat/gef.py
+		if ! grep -q "gef.py" "$HOME/.gdbinit"; then
+			echo "source ~/.gdbinit-gef.py" >> "$HOME/.gdbinit"
+		fi
+	else
+		info "gef 已安装"
+	fi
+
+	if ! command -v seccomp-tools &>/dev/null; then
+		info "安装 seccomp-tools ..."
+		gem install seccomp-tools
+	else
+		info "seccomp-tools 已安装"
+	fi
+
+	if command -v qemu-x86_64 &>/dev/null; then
+		info "QEMU 已安装"
+	else
+		error "QEMU 安装失败，请手动检查"
+	fi
+
+	info "所有 PWN 工具安装完成"
 }
 
 function install_ctf_misc_tools() {
@@ -757,7 +817,10 @@ function install_misc_volatility2() {
 		if ! python2 -c "import distorm3" &>/dev/null; then
 			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple distorm3
 		fi
-		cd $misc_tools_dir/volatility2 && python2 setup.py install && cd -
+
+		pushd "$misc_tools_dir/volatility2" > /dev/null
+		python2 setup.py install
+		popd > /dev/null
 
 		if [ -d "$misc_tools_dir/volatility2" ] && [ -f "$misc_tools_dir/volatility2/build/scripts-2.7/vol.py" ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
 			info "volatility2 安装完成"
@@ -770,7 +833,7 @@ function install_misc_volatility2() {
 }
 
 function install_misc_volatility3() {
-	if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py" ]; then
+	if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/volatility3/__init__.py" ]; then
 		info "volatility3已安装"
 		return
 	fi
@@ -790,10 +853,12 @@ function install_misc_volatility3() {
 			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome
 		fi
 
-		cd $misc_tools_dir/volatility3 && pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple
-		pip3 install . && python3 setup.py install && cd -
+		pushd "$misc_tools_dir/volatility3" > /dev/null
+		pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple
+		popd > /dev/null
 
-		if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/build/lib/volatility3/__init__.py" ]; then
+
+		if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/volatility3/__init__.py" ]; then
 			info "volatility3 安装完成"
 		else
 			error "volatility3 下载完成，但关键文件未找到，可能仓库结构已变更"
@@ -869,9 +934,9 @@ function install_misc_sstv() {
 			pip3 install setuptools==49.2.1
 		fi
 
-		cd $misc_tools_dir/sstv
+		pushd "$misc_tools_dir/sstv" > /dev/null
 		if python3 setup.py install; then
-			cd -
+			popd > /dev/null
 			rm -rf $misc_tools_dir/sstv
 			if command -v sstv &>/dev/null; then
 				info "sstv 安装完成"
@@ -879,7 +944,7 @@ function install_misc_sstv() {
 				error "sstv 安装过程未报错，但命令未找到，可能路径未正确配置"
 			fi
 		else
-			cd -
+			popd > /dev/null
 			rm -rf $misc_tools_dir/sstv
 			error "sstv 编译安装失败，请检查Python环境"
 		fi
@@ -896,16 +961,16 @@ function install_misc_pycdc() {
 
 	info "开始安装 pycdc..."
 	if git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc; then
-		cd $misc_tools_dir/pycdc
+		pushd "$misc_tools_dir/pycdc" > /dev/null
 		if cmake . && make; then
-			cd -
+			popd > /dev/null
 			if [ -d "$misc_tools_dir/pycdc" ] && [ -f "$misc_tools_dir/pycdc/pycdc" ]; then
 				info "pycdc 安装完成"
 			else
 				error "pycdc 编译完成，但可执行文件未找到，可能编译失败"
 			fi
 		else
-			cd -
+			popd > /dev/null
 			error "pycdc 编译失败，请检查cmake和make环境"
 		fi
 	else
@@ -928,7 +993,10 @@ function install_misc_gaps() {
 
 		poetry config repositories.tsinghua https://pypi.tuna.tsinghua.edu.cn/simple
 
-		cd $misc_tools_dir/gaps && poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple && cd -
+		pushd "$misc_tools_dir/gaps" > /dev/null
+		poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple
+		popd > /dev/null
+
 		if command -v gaps &>/dev/null; then
 			info "gaps安装成功"
 			rm -rf $misc_tools_dir/gaps
@@ -949,9 +1017,9 @@ function install_misc_dwarf2json() {
 			if [[ "$(printf '%s\n' "$required_version" "$go_version" | sort -V | head -n1)" == "$required_version" ]]; then
 				info "开始安装 dwarf2json..."
 				git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
-				cd $misc_tools_dir/dwarf2json
+				pushd "$misc_tools_dir/dwarf2json" > /dev/null
 				go build
-				cd -
+				popd > /dev/bull
 				info "dwarf2json安装结束"
 			else
 				error "dwarf2json安装失败，Go版本过低，请安装Go 1.18或更高版本"
