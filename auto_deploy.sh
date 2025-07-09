@@ -290,7 +290,7 @@ function install_pwntools() {
 		ruby_major=$(echo "$ruby_ver" | cut -d. -f1)
 		ruby_minor=$(echo "$ruby_ver" | cut -d. -f2)
 
-		if [[ "$ruby_major" -lt 3 || ( "$ruby_major" -eq 3 && "$ruby_minor" -lt 1 ) ]]; then
+		if [[ "$ruby_major" -lt 3 || ("$ruby_major" -eq 3 && "$ruby_minor" -lt 1) ]]; then
 			info "当前 Ruby 版本为 $ruby_ver，安装 one_gadget 兼容版本..."
 			gem install elftools -v 1.2.0
 			gem install one_gadget -v 1.7.2
@@ -316,7 +316,7 @@ function install_pwntools() {
 		info "正在安装 gef ..."
 		curl -s -L -o "$HOME/.gdbinit-gef.py" https://gef.blah.cat/gef.py
 		if ! grep -q "gef.py" "$HOME/.gdbinit"; then
-			echo "source ~/.gdbinit-gef.py" >> "$HOME/.gdbinit"
+			echo "source ~/.gdbinit-gef.py" >>"$HOME/.gdbinit"
 		fi
 	else
 		info "gef 已安装"
@@ -401,7 +401,7 @@ function list_supported_tools {
 function install_misctool_base() {
 	info "安装系统依赖包"
 	apt-get update -q
-	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev  tk-dev libgdbm-dev libc6-dev libffi-dev
+	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev tk-dev libgdbm-dev libc6-dev libffi-dev
 
 	if [[ $ubuntu_version -le 22 ]]; then
 		apt-get install -y python2-dev python-tk python3-distutils
@@ -488,9 +488,9 @@ function install_misctool_base() {
 	PIP_MINOR=$(echo "$PIP_VERSION" | cut -d. -f2)
 
 	if [ "$PIP_MAJOR" -gt 23 ] || { [ "$PIP_MAJOR" -eq 23 ] && [ "$PIP_MINOR" -ge 0 ]; }; then
-    	PIP_BREAK_ARG="--break-system-packages"
+		PIP_BREAK_ARG="--break-system-packages"
 	else
-    	PIP_BREAK_ARG=""
+		PIP_BREAK_ARG=""
 	fi
 
 	declare -A py3_modules_map=(
@@ -889,9 +889,9 @@ function install_misc_volatility2() {
 			pip2 install -i https://pypi.tuna.tsinghua.edu.cn/simple distorm3
 		fi
 
-		pushd "$misc_tools_dir/volatility2" > /dev/null
+		pushd "$misc_tools_dir/volatility2" >/dev/null
 		python2 setup.py install
-		popd > /dev/null
+		popd >/dev/null
 
 		if [ -d "$misc_tools_dir/volatility2" ] && [ -f "$misc_tools_dir/volatility2/build/scripts-2.7/vol.py" ] && python2 -c "from Crypto.Cipher import AES" &>/dev/null; then
 			info "volatility2 安装完成"
@@ -924,10 +924,9 @@ function install_misc_volatility3() {
 			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome $PIP_BREAK_ARG
 		fi
 
-		pushd "$misc_tools_dir/volatility3" > /dev/null
+		pushd "$misc_tools_dir/volatility3" >/dev/null
 		pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple $PIP_BREAK_ARG
-		popd > /dev/null
-
+		popd >/dev/null
 
 		if [ -d "$misc_tools_dir/volatility3" ] && [ -f "$misc_tools_dir/volatility3/volatility3/__init__.py" ]; then
 			info "volatility3 安装完成"
@@ -1005,9 +1004,9 @@ function install_misc_sstv() {
 		# 	pip3 install setuptools==49.2.1 $PIP_BREAK_ARG
 		# fi
 
-		pushd "$misc_tools_dir/sstv" > /dev/null
+		pushd "$misc_tools_dir/sstv" >/dev/null
 		if python3 setup.py install; then
-			popd > /dev/null
+			popd >/dev/null
 			rm -rf $misc_tools_dir/sstv
 			if command -v sstv &>/dev/null; then
 				info "sstv 安装完成"
@@ -1015,7 +1014,7 @@ function install_misc_sstv() {
 				error "sstv 安装过程未报错，但命令未找到，可能路径未正确配置"
 			fi
 		else
-			popd > /dev/null
+			popd >/dev/null
 			rm -rf $misc_tools_dir/sstv
 			error "sstv 编译安装失败，请检查Python环境"
 		fi
@@ -1032,16 +1031,16 @@ function install_misc_pycdc() {
 
 	info "开始安装 pycdc..."
 	if git clone https://github.com/zrax/pycdc $misc_tools_dir/pycdc; then
-		pushd "$misc_tools_dir/pycdc" > /dev/null
+		pushd "$misc_tools_dir/pycdc" >/dev/null
 		if cmake . && make; then
-			popd > /dev/null
+			popd >/dev/null
 			if [ -d "$misc_tools_dir/pycdc" ] && [ -f "$misc_tools_dir/pycdc/pycdc" ]; then
 				info "pycdc 安装完成"
 			else
 				error "pycdc 编译完成，但可执行文件未找到，可能编译失败"
 			fi
 		else
-			popd > /dev/null
+			popd >/dev/null
 			error "pycdc 编译失败，请检查cmake和make环境"
 		fi
 	else
@@ -1069,9 +1068,9 @@ function install_misc_gaps() {
 
 		poetry config repositories.tsinghua https://pypi.tuna.tsinghua.edu.cn/simple
 
-		pushd "$misc_tools_dir/gaps" > /dev/null
+		pushd "$misc_tools_dir/gaps" >/dev/null
 		poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple $PIP_BREAK_ARG
-		popd > /dev/null
+		popd >/dev/null
 
 		if command -v gaps &>/dev/null; then
 			info "gaps安装成功"
@@ -1093,9 +1092,9 @@ function install_misc_dwarf2json() {
 			if [[ "$(printf '%s\n' "$required_version" "$go_version" | sort -V | head -n1)" == "$required_version" ]]; then
 				info "开始安装 dwarf2json..."
 				git clone https://github.com/volatilityfoundation/dwarf2json $misc_tools_dir/dwarf2json
-				pushd "$misc_tools_dir/dwarf2json" > /dev/null
+				pushd "$misc_tools_dir/dwarf2json" >/dev/null
 				go build
-				popd > /dev/bull
+				popd >/dev/bull
 				info "dwarf2json安装结束"
 			else
 				error "dwarf2json安装失败，Go版本过低，请安装Go 1.18或更高版本"
