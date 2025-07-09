@@ -271,14 +271,14 @@ function install_pwntools() {
 
 	if ! python3 -c "import pwn" &>/dev/null; then
 		info "正在安装 pwntools ..."
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pwntools
+		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pwntools $PIP_BREAK_ARG
 	else
 		info "pwntools 已安装"
 	fi
 
 	if ! command -v ropper &>/dev/null; then
 		info "正在安装 ropper ..."
-		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple ropper
+		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple ropper $PIP_BREAK_ARG
 	else
 		info "ropper 已安装"
 	fi
@@ -404,15 +404,16 @@ function install_misctool_base() {
 	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev  tk-dev libgdbm-dev libc6-dev libffi-dev
 
 	if [[ $ubuntu_version -le 22 ]]; then
-		apt-get install -y python2-dev python-tk
+		apt-get install -y python2-dev python-tk python3-distutils
 		if ! command -v python2 &>/dev/null; then
 			info "安装 python2..."
 			if ! apt-get install -y python2; then
 				error "python2 安装失败，请检查网络或软件源配置"
-				return
+				exit 1
 			fi
 		fi
 	else
+		pip3 install --upgrade setuptools -i https://pypi.tuna.tsinghua.edu.cn/simple --break-system-packages
 		if ! command -v python2 &>/dev/null; then
 			info "Ubuntu $ubuntu_version 未检测到 python2，开始从源码安装 Python 2.7.18"
 
@@ -434,7 +435,7 @@ function install_misctool_base() {
 
 			if ! command -v python2 &>/dev/null; then
 				error "Python2 安装失败，请检查编译日志"
-				return
+				exit 1
 			fi
 		fi
 
@@ -444,6 +445,11 @@ function install_misctool_base() {
 		info "安装 pip2..."
 		wget -q https://bootstrap.pypa.io/pip/2.7/get-pip.py -O /tmp/get-pip2.py
 		python2 /tmp/get-pip2.py && rm -f /tmp/get-pip2.py
+	fi
+
+	if ! command -v pip2 &>/dev/null; then
+		error "pip2安装失败，请重试"
+		exit 1
 	fi
 
 	declare -A py2_modules_map=(
@@ -464,13 +470,27 @@ function install_misctool_base() {
 
 	if ! command -v pip3 &>/dev/null; then
 		info "安装 pip3..."
-		apt-get install -y python3-distutils
 		wget -q https://bootstrap.pypa.io/pip/get-pip.py -O /tmp/get-pip3.py
 		python3 /tmp/get-pip3.py && rm -f /tmp/get-pip3.py
 	fi
 
 	if ! command -v pip3 &>/dev/null; then
 		apt-get install -y -q python3-pip
+	fi
+
+	if ! command -v pip3 &>/dev/null; then
+		error "pip3安装失败，请重试"
+		exit 1
+	fi
+
+	PIP_VERSION=$(pip3 --version | awk '{print $2}')
+	PIP_MAJOR=$(echo "$PIP_VERSION" | cut -d. -f1)
+	PIP_MINOR=$(echo "$PIP_VERSION" | cut -d. -f2)
+
+	if [ "$PIP_MAJOR" -gt 23 ] || { [ "$PIP_MAJOR" -eq 23 ] && [ "$PIP_MINOR" -ge 0 ]; }; then
+    	PIP_BREAK_ARG="--break-system-packages"
+	else
+    	PIP_BREAK_ARG=""
 	fi
 
 	declare -A py3_modules_map=(
@@ -484,13 +504,15 @@ function install_misctool_base() {
 		[coloredlogs]=coloredlogs
 		[loguru]=loguru
 		[tqdm]=tqdm
+		[soundfile]=soundfile
+		[pefile]=pefile
 	)
 
 	for pkg in "${!py3_modules_map[@]}"; do
 		mod="${py3_modules_map[$pkg]}"
 		if ! python3 -c "import ${mod}" &>/dev/null; then
 			info "安装 Python3 模块：$pkg (import 名: $mod)"
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade "$pkg"
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade "$pkg" $PIP_BREAK_ARG
 		fi
 	done
 }
@@ -889,21 +911,21 @@ function install_misc_volatility3() {
 
 	info "开始安装 volatility3..."
 	if git clone https://github.com/volatilityfoundation/volatility3 $misc_tools_dir/volatility3; then
-		if python3 -c "import setuptools" &>/dev/null; then
-			if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
-				pip3 uninstall -y setuptools
-				pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
-			fi
-		else
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1
-		fi
+		# if python3 -c "import setuptools" &>/dev/null; then
+		# 	if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
+		# 		pip3 uninstall -y setuptools
+		# 		pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1 $PIP_BREAK_ARG
+		# 	fi
+		# else
+		# 	pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools==49.2.1 $PIP_BREAK_ARG
+		# fi
 
 		if ! python3 -c "from Crypto.Cipher import AES" &>/dev/null; then
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pycryptodome $PIP_BREAK_ARG
 		fi
 
 		pushd "$misc_tools_dir/volatility3" > /dev/null
-		pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple
+		pip3 install --user -e ".[full]" -i https://pypi.tuna.tsinghua.edu.cn/simple $PIP_BREAK_ARG
 		popd > /dev/null
 
 
@@ -963,7 +985,7 @@ function install_misc_sstv() {
 
 	if ! pip3 list | grep -q "scipy"; then
 		info "安装 scipy 依赖..."
-		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy; then
+		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple scipy $PIP_BREAK_ARG; then
 			error "scipy 安装失败，请检查网络或pip源配置"
 			return
 		fi
@@ -971,17 +993,17 @@ function install_misc_sstv() {
 
 	if ! pip3 list | grep -q "cffi"; then
 		info "安装 cffi 依赖..."
-		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi; then
+		if ! pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple cffi $PIP_BREAK_ARG; then
 			error "cffi 安装失败，请检查网络或pip源配置"
 			return
 		fi
 	fi
 
 	if git clone https://github.com/colaclanth/sstv.git $misc_tools_dir/sstv; then
-		if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
-			pip3 uninstall -y setuptools
-			pip3 install setuptools==49.2.1
-		fi
+		# if [[ $(pip3 list | grep setuptools | awk '{print $2}') > '66.0.0' ]]; then
+		# 	pip3 uninstall -y setuptools
+		# 	pip3 install setuptools==49.2.1 $PIP_BREAK_ARG
+		# fi
 
 		pushd "$misc_tools_dir/sstv" > /dev/null
 		if python3 setup.py install; then
@@ -1028,6 +1050,11 @@ function install_misc_pycdc() {
 }
 
 function install_misc_gaps() {
+	if [[ $ubuntu_version -ge 24 ]]; then
+		warn "暂不支持ubuntu24，如需要可手动安装"
+		return
+	fi
+
 	if command -v gaps &>/dev/null; then
 		info "gaps已安装"
 	else
@@ -1036,14 +1063,14 @@ function install_misc_gaps() {
 		git clone https://github.com/nemanja-m/gaps $misc_tools_dir/gaps
 
 		if ! python3 -c "import poetry" &>/dev/null; then
-			pip3 install oct2py --ignore-installed pexpect
-			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple poetry
+			pip3 install oct2py --ignore-installed pexpect $PIP_BREAK_ARG
+			pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple poetry $PIP_BREAK_ARG
 		fi
 
 		poetry config repositories.tsinghua https://pypi.tuna.tsinghua.edu.cn/simple
 
 		pushd "$misc_tools_dir/gaps" > /dev/null
-		poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple
+		poetry install && pip3 install . -i https://mirrors.aliyun.com/pypi/simple $PIP_BREAK_ARG
 		popd > /dev/null
 
 		if command -v gaps &>/dev/null; then
@@ -1134,7 +1161,7 @@ function install_misc_stegpy() {
 	fi
 
 	info "开始安装 stegpy..."
-	if pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy; then
+	if pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple stegpy $PIP_BREAK_ARG; then
 		if pip3 list | grep "stegpy" &>/dev/null; then
 			info "stegpy 安装完成"
 		else
