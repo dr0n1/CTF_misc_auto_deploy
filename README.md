@@ -110,3 +110,9 @@ V3.1: 移除了 centos 的工具支持，增加 golang 多版本支持等
 V3.2: 修复了诺干 bug，增加了 java 版本管理  
 V4.1: 添加 pwntools 等工具  
 V4.2: 添加了部分 web 工具
+
+---
+
+本项目仅用作学习教育目的, 不用于任何其他用途, 如有侵权请第一时间联系作者删除
+
+This project is only for learning and educational purposes and is not intended for any other purpose. If there is any infringement, please contact the author immediately to delete it
