@@ -1,11 +1,12 @@
 #!/bin/bash
 # Author: dr0n1
-# Version：4.1 beta
+# Version：4.2 beta
 # Email: 1930774374@qq.com
 
 ubuntu_version=$(lsb_release -rs | cut -d. -f1)
 misc_tools_dir="misc_tools"
 pwn_tools_dir="pwn_tools"
+web_tools_dir="web_tools"
 COLOR_G="\x1b[0;32m"
 COLOR_R="\x1b[0;31m"
 COLOR_Y="\x1b[0;33m"
@@ -1171,6 +1172,53 @@ function install_misc_stegpy() {
 	fi
 }
 
+function install_web_tools() {
+	if ! command -v docker &>/dev/null; then
+		info "Docker 未安装，开始安装..."
+		install_docker
+	else
+		info "Docker 已安装。"
+	fi
+
+	mkdir -p "$web_tools_dir"
+
+	if [ ! -f "$web_tools_dir/reverse-shell-generator/Dockerfile" ]; then
+		info "克隆 reverse-shell-generator 项目..."
+		git clone https://github.com/0dayCTF/reverse-shell-generator.git $web_tools_dir/reverse-shell-generator
+		if [ $? -ne 0 ]; then
+			error "克隆项目失败。"
+			return 1
+		fi
+
+		cat >"$web_tools_dir/reverse-shell-generator/Dockerfile" <<EOF
+FROM nginx:alpine
+COPY . /usr/share/nginx/html
+EOF
+	fi
+
+	info "构建 Docker 镜像 reverse_shell_generator..."
+	docker build -t reverse_shell_generator $web_tools_dir/reverse-shell-generator
+	if [ $? -ne 0 ]; then
+		error "镜像构建失败。"
+		return 1
+	fi
+
+	read -p "[?] 是否启动容器？(y/n): " confirm
+	if [[ "$confirm" =~ ^[Yy]$ ]]; then
+		read -p "[?] 请输入映射到容器的端口（默认 80）: " port
+		port=${port:-80}
+		info "启动容器，映射端口 $port ..."
+		docker run -d -p "$port":80 reverse_shell_generator
+		if [ $? -eq 0 ]; then
+			info "容器已启动，访问地址：http://localhost:$port/"
+		else
+			error "容器启动失败。"
+		fi
+	else
+		warn "用户选择不启动容器。"
+	fi
+}
+
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
 	echo "		base				基础配置"
@@ -1180,6 +1228,7 @@ function usage() {
 	echo "		java				安装java"
 	echo "		misc-tools			安装misc工具"
 	echo "		pwntools			安装pwn工具"
+	echo "		webtools			安装web工具"
 	echo
 	echo "示例: ./auto_deploy.sh base docker"
 }
@@ -1210,6 +1259,7 @@ function main() {
 		java) install_java ;;
 		misc-tools) install_ctf_misc_tools ;;
 		pwntools) install_pwntools ;;
+		webtools) install_web_tools ;;
 		*) info "没有这个参数^_^" ;;
 		esac
 	done
