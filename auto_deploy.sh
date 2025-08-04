@@ -260,7 +260,7 @@ function install_java() {
 	info "当前 Java 版本为：$(java -version 2>&1 | head -n 1)"
 }
 
-function install_pwntools() {
+function install_ctf_pwn_tools() {
 	info "开始安装 pwntools 及常用PWN工具"
 
 	install_misctool_base
@@ -339,6 +339,60 @@ function install_pwntools() {
 	info "所有 PWN 工具安装完成"
 }
 
+function install_ctf_web_tools() {
+	info "支持的工具列表如下（可输入 all 全部安装）："
+	list_supported_tools
+
+	read -p "请输入要安装的工具名，多个工具用英文逗号分隔（如：frp,nps）: " input
+	input=$(echo "$input" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+	[ -z "$input" ] && {
+		error "未输入任何工具名称，已取消安装"
+		return
+	}
+
+	tools=($(echo "$input" | tr ',' ' '))
+	supported_tools=()
+	unsupported_tools=()
+
+	for func in $(declare -F | awk '{print $3}' | grep '^install_web_'); do
+		supported_tools+=("${func#install_web_}")
+	done
+
+	info "正在安装基础依赖..."
+	install_misctool_base
+
+	if [[ " ${tools[*]} " =~ " all " ]]; then
+		for tool in "${supported_tools[@]}"; do
+			info "正在安装 $tool ..."
+			install_web_"$tool"
+		done
+	else
+		declare -A installed_map=()
+		for tool in "${tools[@]}"; do
+			if [[ -n "${installed_map[$tool]}" ]]; then
+				continue
+			fi
+			installed_map[$tool]=1
+
+			if [[ " ${supported_tools[*]} " =~ " $tool " ]]; then
+				info "正在安装 $tool ..."
+				install_web_"$tool"
+			else
+				unsupported_tools+=("$tool")
+			fi
+		done
+	fi
+
+	if [[ ${#unsupported_tools[@]} -ne 0 ]]; then
+		error "以下工具暂不支持："
+		for tool in "${unsupported_tools[@]}"; do
+			error "- $tool"
+		done
+	fi
+
+	[ ! -d "$web_tools_dir" ] && mkdir -p "$web_tools_dir"
+}
+
 function install_ctf_misc_tools() {
 	info "支持的工具列表如下（可输入 all 全部安装）："
 	list_supported_tools
@@ -394,8 +448,24 @@ function install_ctf_misc_tools() {
 }
 
 function list_supported_tools {
-	for func_name in $(declare -F | awk '{print $3}' | grep "^install_misc_"); do
-		info "- ${func_name#install_misc_}"
+	local caller=${FUNCNAME[1]}
+	local prefix=""
+
+	case "$caller" in
+	install_ctf_misc_tools)
+		prefix="install_misc_"
+		;;
+	install_ctf_web_tools)
+		prefix="install_web_"
+		;;
+	*)
+		echo "Unknown caller: $caller"
+		return 1
+		;;
+	esac
+
+	for func_name in $(declare -F | awk '{print $3}' | grep "^${prefix}"); do
+		info "- ${func_name#${prefix}}"
 	done
 }
 
@@ -459,6 +529,7 @@ function install_misctool_base() {
 		[pillow]=PIL
 		[enum]=enum
 		[setuptools]=setuptools
+		[requests]=requests
 	)
 
 	for pkg in "${!py2_modules_map[@]}"; do
@@ -1172,21 +1243,24 @@ function install_misc_stegpy() {
 	fi
 }
 
-function install_web_tools() {
+function install_web_reverse-shell-generator() {
 	if ! command -v docker &>/dev/null; then
 		info "Docker 未安装，开始安装..."
 		install_docker
 	else
-		info "Docker 已安装。"
+		info "Docker 已安装"
 	fi
 
-	mkdir -p "$web_tools_dir"
+	if docker images --format "{{.Repository}}" | grep -q "^reverse_shell_generator$"; then
+		info "镜像 reverse_shell_generator 已存在，跳过执行"
+		return 0
+	fi
 
 	if [ ! -f "$web_tools_dir/reverse-shell-generator/Dockerfile" ]; then
 		info "克隆 reverse-shell-generator 项目..."
 		git clone https://github.com/0dayCTF/reverse-shell-generator.git $web_tools_dir/reverse-shell-generator
 		if [ $? -ne 0 ]; then
-			error "克隆项目失败。"
+			error "克隆项目失败"
 			return 1
 		fi
 
@@ -1199,7 +1273,7 @@ EOF
 	info "构建 Docker 镜像 reverse_shell_generator..."
 	docker build -t reverse_shell_generator $web_tools_dir/reverse-shell-generator
 	if [ $? -ne 0 ]; then
-		error "镜像构建失败。"
+		error "镜像构建失败"
 		return 1
 	fi
 
@@ -1212,10 +1286,28 @@ EOF
 		if [ $? -eq 0 ]; then
 			info "容器已启动，访问地址：http://localhost:$port/"
 		else
-			error "容器启动失败。"
+			error "容器启动失败"
 		fi
 	else
-		warn "用户选择不启动容器。"
+		warn "用户选择不启动容器"
+	fi
+}
+
+function install_web_neo-regorg() {
+	if [ -d "$web_tools_dir/neo-regorg" ] && [ -f "$web_tools_dir/neo-regorg/neoreg.py" ]; then
+		info "neo-regorg 已经安装"
+		return
+	fi
+
+	info "开始安装 neo-regorg..."
+	if git clone https://github.com/L-codes/Neo-reGeorg.git $web_tools_dir/neo-regorg; then
+		if [ -d "$web_tools_dir/neo-regorg" ] && [ -f "$web_tools_dir/neo-regorg/neoreg.py" ]; then
+			info "neo-regorg 安装完成"
+		else
+			error "neo-regorg 下载完成，但关键文件未找到，可能仓库结构已变更"
+		fi
+	else
+		error "neo-regorg 安装失败，请检查网络连接或GitHub访问"
 	fi
 }
 
@@ -1226,7 +1318,7 @@ function usage() {
 	echo "		docker-compose			安装docker-compose"
 	echo "		go				安装golang"
 	echo "		java				安装java"
-	echo "		misc-tools			安装misc工具"
+	echo "		misctools			安装misc工具"
 	echo "		pwntools			安装pwn工具"
 	echo "		webtools			安装web工具"
 	echo
@@ -1257,9 +1349,9 @@ function main() {
 		docker-compose) install_docker-compose ;;
 		go) install_go ;;
 		java) install_java ;;
-		misc-tools) install_ctf_misc_tools ;;
-		pwntools) install_pwntools ;;
-		webtools) install_web_tools ;;
+		misctools) install_ctf_misc_tools ;;
+		pwntools) install_ctf_pwn_tools ;;
+		webtools) install_ctf_web_tools ;;
 		*) info "没有这个参数^_^" ;;
 		esac
 	done

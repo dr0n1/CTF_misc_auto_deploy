@@ -59,6 +59,7 @@ qemu
 
 web:
 reverse-shell-generator(docker)
+neo-regorg(tunnel)
 ```
 
 # 支持的系统
@@ -84,7 +85,7 @@ usage: ./auto_deploy.sh [mode]
                 docker-compose                  安装docker-compose
                 go                              安装golang
                 java                            安装java
-                misc-tools                      安装misc工具
+                misctools                       安装misc工具
                 pwntools                        安装pwn工具
                 webtools                        安装web工具
 
