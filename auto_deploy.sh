@@ -1295,19 +1295,75 @@ EOF
 
 function install_web_neo-regorg() {
 	if [ -d "$web_tools_dir/neo-regorg" ] && [ -f "$web_tools_dir/neo-regorg/neoreg.py" ]; then
-		info "neo-regorg 已经安装"
+		info "neo-regorg 已经下载"
 		return
 	fi
 
-	info "开始安装 neo-regorg..."
+	info "开始下载 neo-regorg..."
 	if git clone https://github.com/L-codes/Neo-reGeorg.git $web_tools_dir/neo-regorg; then
 		if [ -d "$web_tools_dir/neo-regorg" ] && [ -f "$web_tools_dir/neo-regorg/neoreg.py" ]; then
-			info "neo-regorg 安装完成"
+			info "neo-regorg 下载完成"
 		else
 			error "neo-regorg 下载完成，但关键文件未找到，可能仓库结构已变更"
 		fi
 	else
-		error "neo-regorg 安装失败，请检查网络连接或GitHub访问"
+		error "neo-regorg 下载失败，请检查网络连接或GitHub访问"
+	fi
+}
+
+function install_web_stowaway() {
+	local target_dir="$web_tools_dir/stowaway"
+	mkdir -p "$target_dir"
+
+	if [ -d "$target_dir" ] && [ -f "$target_dir/linux_x64_admin" ]; then
+		info "stowaway 已经下载"
+		return
+	fi
+
+	info "开始下载 stowaway..."
+
+	local base_url="https://github.com/ph4ntonn/Stowaway/releases/download/v2.2"
+	local files=(
+		arm_eabi5_agent
+		freebsd_arm_admin
+		freebsd_arm_agent
+		freebsd_x86_admin
+		freebsd_x86_agent
+		linux_arm64_admin
+		linux_arm64_agent
+		linux_x64_admin
+		linux_x64_agent
+		linux_x86_admin
+		linux_x86_agent
+		macos_arm64_admin
+		macos_arm64_agent
+		macos_x64_admin
+		macos_x64_agent
+		mipsel_agent
+		windows_x64_admin.exe
+		windows_x64_agent.exe
+		windows_x86_admin.exe
+		windows_x86_agent.exe
+	)
+
+	local success=1
+	for file in "${files[@]}"; do
+		local url="$base_url/$file"
+		local dest="$target_dir/$file"
+
+		if curl -L -o "$dest" "$url"; then
+			chmod +x "$dest" 2>/dev/null || true
+			info "已下载 $file"
+		else
+			error "下载失败: $file"
+			success=0
+		fi
+	done
+
+	if [ "$success" -eq 1 ] && [ -f "$target_dir/linux_x64_admin" ]; then
+		info "stowaway 安装完成"
+	else
+		error "下载过程中可能存在问题，请检查下载内容"
 	fi
 }
 
