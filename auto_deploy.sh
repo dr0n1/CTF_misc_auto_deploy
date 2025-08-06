@@ -1367,6 +1367,109 @@ function install_web_stowaway() {
 	fi
 }
 
+function install_web_frp() {
+	local target_dir="$web_tools_dir/frp"
+	mkdir -p "$target_dir"
+
+	if [ -d "$target_dir/current" ]; then
+		info "frp 已解压到 $target_dir/current 并准备好使用"
+		return
+	fi
+
+	info "开始下载 frp..."
+
+	local base_url="https://github.com/fatedier/frp/releases/download/v0.63.0"
+	local files=(
+		frp_0.63.0_android_arm64.tar.gz
+		frp_0.63.0_darwin_amd64.tar.gz
+		frp_0.63.0_darwin_arm64.tar.gz
+		frp_0.63.0_freebsd_amd64.tar.gz
+		frp_0.63.0_linux_amd64.tar.gz
+		frp_0.63.0_linux_arm.tar.gz
+		frp_0.63.0_linux_arm64.tar.gz
+		frp_0.63.0_linux_arm_hf.tar.gz
+		frp_0.63.0_linux_loong64.tar.gz
+		frp_0.63.0_linux_mips.tar.gz
+		frp_0.63.0_linux_mips64.tar.gz
+		frp_0.63.0_linux_mips64le.tar.gz
+		frp_0.63.0_linux_mipsle.tar.gz
+		frp_0.63.0_linux_riscv64.tar.gz
+		frp_0.63.0_openbsd_amd64.tar.gz
+		frp_0.63.0_windows_amd64.zip
+		frp_0.63.0_windows_arm64.zip
+		frp_sha256_checksums.txt
+	)
+
+	local success=1
+	for file in "${files[@]}"; do
+		local url="$base_url/$file"
+		local dest="$target_dir/$file"
+
+		if [ ! -f "$dest" ]; then
+			if curl -L -o "$dest" "$url"; then
+				info "已下载 $file"
+			else
+				error "下载失败: $file"
+				success=0
+			fi
+		else
+			info "$file 已存在，跳过下载"
+		fi
+	done
+
+	if [ "$success" -ne 1 ]; then
+		error "下载过程中可能存在问题，请检查下载内容"
+		return
+	fi
+
+	# 自动识别平台并解压
+	local uname_os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+	local uname_arch="$(uname -m)"
+
+	case "$uname_arch" in
+		x86_64) arch="amd64" ;;
+		aarch64 | arm64) arch="arm64" ;;
+		armv7l) arch="arm" ;;
+		armv6l) arch="arm" ;;
+		loongarch64) arch="loong64" ;;
+		riscv64) arch="riscv64" ;;
+		mips64) arch="mips64" ;;
+		mips64el) arch="mips64le" ;;
+		mipsel) arch="mipsle" ;;
+		mips) arch="mips" ;;
+		i386 | i686) arch="386" ;;
+		*) arch="unknown" ;;
+	esac
+
+	local match=""
+	for file in "${files[@]}"; do
+		if [[ "$file" == *"${uname_os}_${arch}"* ]]; then
+			match="$file"
+			break
+		fi
+	done
+
+	if [ -z "$match" ]; then
+		error "未找到适用于当前系统 ($uname_os $arch) 的 frp 包"
+		return
+	fi
+
+	info "开始解压 $match"
+
+	mkdir -p "$target_dir/current"
+	if [[ "$match" == *.tar.gz ]]; then
+		tar -xzf "$target_dir/$match" -C "$target_dir/current" --strip-components=1
+	elif [[ "$match" == *.zip ]]; then
+		unzip -o "$target_dir/$match" -d "$target_dir/current"
+	else
+		error "不支持的文件格式: $match"
+		return
+	fi
+
+	info "frp 安装完成，已解压到 $target_dir/current"
+}
+
+
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
 	echo "		base				基础配置"

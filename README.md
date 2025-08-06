@@ -61,6 +61,7 @@ web:
 reverse-shell-generator(docker)
 neo-regorg(tunnel)
 stowaway(tunnel)
+frp(tunnel)
 ```
 
 # 支持的系统
