@@ -1427,18 +1427,18 @@ function install_web_frp() {
 	local uname_arch="$(uname -m)"
 
 	case "$uname_arch" in
-		x86_64) arch="amd64" ;;
-		aarch64 | arm64) arch="arm64" ;;
-		armv7l) arch="arm" ;;
-		armv6l) arch="arm" ;;
-		loongarch64) arch="loong64" ;;
-		riscv64) arch="riscv64" ;;
-		mips64) arch="mips64" ;;
-		mips64el) arch="mips64le" ;;
-		mipsel) arch="mipsle" ;;
-		mips) arch="mips" ;;
-		i386 | i686) arch="386" ;;
-		*) arch="unknown" ;;
+	x86_64) arch="amd64" ;;
+	aarch64 | arm64) arch="arm64" ;;
+	armv7l) arch="arm" ;;
+	armv6l) arch="arm" ;;
+	loongarch64) arch="loong64" ;;
+	riscv64) arch="riscv64" ;;
+	mips64) arch="mips64" ;;
+	mips64el) arch="mips64le" ;;
+	mipsel) arch="mipsle" ;;
+	mips) arch="mips" ;;
+	i386 | i686) arch="386" ;;
+	*) arch="unknown" ;;
 	esac
 
 	local match=""
@@ -1468,7 +1468,6 @@ function install_web_frp() {
 
 	info "frp 安装完成，已解压到 $target_dir/current"
 }
-
 
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
