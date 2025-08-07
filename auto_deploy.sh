@@ -1469,6 +1469,229 @@ function install_web_frp() {
 	info "frp 安装完成，已解压到 $target_dir/current"
 }
 
+function install_web_iox() {
+	local target_dir="$web_tools_dir/iox"
+	mkdir -p "$target_dir"
+
+	if [ -d "$target_dir/current" ]; then
+		info "iox 已解压到 $target_dir/current 并准备好使用"
+		return
+	fi
+
+	info "开始下载 iox..."
+
+	local base_url="https://github.com/EddieIvan01/iox/releases/download/v0.4"
+	local files=(
+		iox_v0.4-next_Darwin_i386.tar.gz
+		iox_v0.4-next_Darwin_x86_64.tar.gz
+		iox_v0.4-next_Linux_i386.tar.gz
+		iox_v0.4-next_Linux_x86_64.tar.gz
+		iox_v0.4-next_Windows_i386.tar.gz
+		iox_v0.4-next_Windows_x86_64.tar.gz
+	)
+
+	local success=1
+	for file in "${files[@]}"; do
+		local url="$base_url/$file"
+		local dest="$target_dir/$file"
+		if [ ! -f "$dest" ]; then
+			if curl -L -o "$dest" "$url"; then
+				info "已下载 $file"
+			else
+				error "下载失败: $file"
+				success=0
+			fi
+		else
+			info "$file 已存在，跳过下载"
+		fi
+	done
+
+	if [ "$success" -ne 1 ]; then
+		error "下载过程中可能存在问题，请检查下载内容"
+		return
+	fi
+
+	local uname_os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+	local uname_arch="$(uname -m)"
+	case "$uname_arch" in
+	x86_64) arch="x86_64" ;;
+	i386 | i686) arch="i386" ;;
+	*) arch="unknown" ;;
+	esac
+
+	local match=""
+	for file in "${files[@]}"; do
+		if [[ "$file" == *"${uname_os^}_${arch}.tar.gz" ]]; then
+			match="$file"
+			break
+		fi
+	done
+
+	if [ -z "$match" ]; then
+		error "未找到适用于当前系统的 iox 包"
+		return
+	fi
+
+	info "开始解压 $match"
+
+	mkdir -p "$target_dir/current"
+	tar -xzf "$target_dir/$match" -C "$target_dir/current" --strip-components=1
+
+	info "iox 安装完成，已解压到 $target_dir/current"
+}
+
+function install_web_chisel() {
+	local target_dir="$web_tools_dir/chisel"
+	mkdir -p "$target_dir"
+
+	if [ -d "$target_dir/current" ]; then
+		info "chisel 已解压到 $target_dir/current 并准备好使用"
+		return
+	fi
+
+	info "开始下载 chisel..."
+
+	local base_url="https://github.com/jpillora/chisel/releases/download/v1.10.1"
+	local files=(
+		chisel_1.10.1_darwin_amd64.gz
+		chisel_1.10.1_darwin_arm64.gz
+		chisel_1.10.1_linux_386.apk
+		chisel_1.10.1_linux_386.deb
+		chisel_1.10.1_linux_386.gz
+		chisel_1.10.1_linux_386.rpm
+		chisel_1.10.1_linux_amd64.apk
+		chisel_1.10.1_linux_amd64.deb
+		chisel_1.10.1_linux_amd64.gz
+		chisel_1.10.1_linux_amd64.rpm
+		chisel_1.10.1_linux_arm64.apk
+		chisel_1.10.1_linux_arm64.deb
+		chisel_1.10.1_linux_arm64.gz
+		chisel_1.10.1_linux_arm64.rpm
+		chisel_1.10.1_linux_armv5.apk
+		chisel_1.10.1_linux_armv5.deb
+		chisel_1.10.1_linux_armv5.gz
+		chisel_1.10.1_linux_armv5.rpm
+		chisel_1.10.1_linux_armv6.apk
+		chisel_1.10.1_linux_armv6.deb
+		chisel_1.10.1_linux_armv6.gz
+		chisel_1.10.1_linux_armv6.rpm
+		chisel_1.10.1_linux_armv7.apk
+		chisel_1.10.1_linux_armv7.deb
+		chisel_1.10.1_linux_armv7.gz
+		chisel_1.10.1_linux_armv7.rpm
+		chisel_1.10.1_linux_mips64le_hardfloat.apk
+		chisel_1.10.1_linux_mips64le_hardfloat.deb
+		chisel_1.10.1_linux_mips64le_hardfloat.gz
+		chisel_1.10.1_linux_mips64le_hardfloat.rpm
+		chisel_1.10.1_linux_mips64le_softfloat.apk
+		chisel_1.10.1_linux_mips64le_softfloat.deb
+		chisel_1.10.1_linux_mips64le_softfloat.gz
+		chisel_1.10.1_linux_mips64le_softfloat.rpm
+		chisel_1.10.1_linux_mips64_hardfloat.apk
+		chisel_1.10.1_linux_mips64_hardfloat.deb
+		chisel_1.10.1_linux_mips64_hardfloat.gz
+		chisel_1.10.1_linux_mips64_hardfloat.rpm
+		chisel_1.10.1_linux_mips64_softfloat.apk
+		chisel_1.10.1_linux_mips64_softfloat.deb
+		chisel_1.10.1_linux_mips64_softfloat.gz
+		chisel_1.10.1_linux_mips64_softfloat.rpm
+		chisel_1.10.1_linux_mipsle_hardfloat.apk
+		chisel_1.10.1_linux_mipsle_hardfloat.deb
+		chisel_1.10.1_linux_mipsle_hardfloat.gz
+		chisel_1.10.1_linux_mipsle_hardfloat.rpm
+		chisel_1.10.1_linux_mipsle_softfloat.apk
+		chisel_1.10.1_linux_mipsle_softfloat.deb
+		chisel_1.10.1_linux_mipsle_softfloat.gz
+		chisel_1.10.1_linux_mipsle_softfloat.rpm
+		chisel_1.10.1_linux_mips_hardfloat.apk
+		chisel_1.10.1_linux_mips_hardfloat.deb
+		chisel_1.10.1_linux_mips_hardfloat.gz
+		chisel_1.10.1_linux_mips_hardfloat.rpm
+		chisel_1.10.1_linux_mips_softfloat.apk
+		chisel_1.10.1_linux_mips_softfloat.deb
+		chisel_1.10.1_linux_mips_softfloat.gz
+		chisel_1.10.1_linux_mips_softfloat.rpm
+		chisel_1.10.1_linux_ppc64.apk
+		chisel_1.10.1_linux_ppc64.deb
+		chisel_1.10.1_linux_ppc64.gz
+		chisel_1.10.1_linux_ppc64.rpm
+		chisel_1.10.1_linux_ppc64le.apk
+		chisel_1.10.1_linux_ppc64le.deb
+		chisel_1.10.1_linux_ppc64le.gz
+		chisel_1.10.1_linux_ppc64le.rpm
+		chisel_1.10.1_linux_s390x.apk
+		chisel_1.10.1_linux_s390x.deb
+		chisel_1.10.1_linux_s390x.gz
+		chisel_1.10.1_linux_s390x.rpm
+		chisel_1.10.1_openbsd_386.gz
+		chisel_1.10.1_openbsd_amd64.gz
+		chisel_1.10.1_openbsd_arm64.gz
+		chisel_1.10.1_openbsd_armv5.gz
+		chisel_1.10.1_openbsd_armv6.gz
+		chisel_1.10.1_openbsd_armv7.gz
+		chisel_1.10.1_windows_386.gz
+		chisel_1.10.1_windows_amd64.gz
+		chisel_1.10.1_windows_arm64.gz
+		chisel_1.10.1_windows_armv5.gz
+		chisel_1.10.1_windows_armv6.gz
+		chisel_1.10.1_windows_armv7.gz
+	)
+
+	local success=1
+	for file in "${files[@]}"; do
+		local url="$base_url/$file"
+		local dest="$target_dir/$file"
+		if [ ! -f "$dest" ]; then
+			if curl -L -o "$dest" "$url"; then
+				info "已下载 $file"
+			else
+				error "下载失败: $file"
+				success=0
+			fi
+		else
+			info "$file 已存在，跳过下载"
+		fi
+	done
+
+	if [ "$success" -ne 1 ]; then
+		error "下载过程中可能存在问题，请检查下载内容"
+		return
+	fi
+
+	local uname_os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+	local uname_arch="$(uname -m)"
+	case "$uname_arch" in
+	x86_64) arch="amd64" ;;
+	aarch64 | arm64) arch="arm64" ;;
+	armv5l) arch="armv5" ;;
+	armv6l) arch="armv6" ;;
+	armv7l) arch="armv7" ;;
+	i386 | i686) arch="386" ;;
+	*) arch="unknown" ;;
+	esac
+
+	local match=""
+	for file in "${files[@]}"; do
+		if [[ "$file" == *"${uname_os}_${arch}.gz" ]]; then
+			match="$file"
+			break
+		fi
+	done
+
+	if [ -z "$match" ]; then
+		error "未找到适用于当前系统的 chisel 包"
+		return
+	fi
+
+	info "开始解压 $match"
+
+	mkdir -p "$target_dir/current"
+	gunzip -c "$target_dir/$match" >"$target_dir/current/chisel"
+	chmod +x "$target_dir/current/chisel"
+
+	info "chisel 安装完成，已解压到 $target_dir/current"
+}
+
 function usage() {
 	echo "usage: ./auto_deploy.sh [mode]"
 	echo "		base				基础配置"
