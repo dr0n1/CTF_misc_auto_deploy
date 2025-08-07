@@ -1535,7 +1535,7 @@ function install_web_iox() {
 	info "开始解压 $match"
 
 	mkdir -p "$target_dir/current"
-	tar -xzf "$target_dir/$match" -C "$target_dir/current" --strip-components=1
+	tar -xzf "$target_dir/$match" -C "$target_dir/current"
 
 	info "iox 安装完成，已解压到 $target_dir/current"
 }
