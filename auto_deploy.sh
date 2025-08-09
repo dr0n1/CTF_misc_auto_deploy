@@ -472,7 +472,7 @@ function list_supported_tools {
 function install_misctool_base() {
 	info "安装系统依赖包"
 	apt-get update -q
-	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev tk-dev libgdbm-dev libc6-dev libffi-dev
+	apt-get install -y git gcc make cmake python3-dev libbz2-dev build-essential zlib1g-dev libssl-dev libreadline-dev libsqlite3-dev curl checkinstall libncursesw5-dev tk-dev libgdbm-dev libc6-dev libffi-dev proxychains4
 
 	if [[ $ubuntu_version -le 22 ]]; then
 		apt-get install -y python2-dev python-tk python3-distutils
