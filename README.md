@@ -59,6 +59,7 @@ qemu
 
 web:
 reverse-shell-generator(docker)
+gtfobins(docker)
 neo-regorg(tunnel)
 stowaway(tunnel)
 frp(tunnel)

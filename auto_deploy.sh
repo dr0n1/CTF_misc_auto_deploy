@@ -1251,40 +1251,112 @@ function install_web_reverse-shell-generator() {
 		info "Docker 已安装"
 	fi
 
-	if docker images --format "{{.Repository}}" | grep -q "^reverse_shell_generator$"; then
-		info "镜像 reverse_shell_generator 已存在，跳过执行"
-		return 0
-	fi
+	if ! docker images --format "{{.Repository}}" | grep -q "^reverse_shell_generator$"; then
+		if [ ! -f "$web_tools_dir/reverse-shell-generator/Dockerfile" ]; then
+			info "克隆 reverse-shell-generator 项目..."
+			git clone https://github.com/0dayCTF/reverse-shell-generator.git $web_tools_dir/reverse-shell-generator
+			if [ $? -ne 0 ]; then
+				error "克隆项目失败"
+				return 1
+			fi
 
-	if [ ! -f "$web_tools_dir/reverse-shell-generator/Dockerfile" ]; then
-		info "克隆 reverse-shell-generator 项目..."
-		git clone https://github.com/0dayCTF/reverse-shell-generator.git $web_tools_dir/reverse-shell-generator
-		if [ $? -ne 0 ]; then
-			error "克隆项目失败"
-			return 1
-		fi
-
-		cat >"$web_tools_dir/reverse-shell-generator/Dockerfile" <<EOF
+			cat >"$web_tools_dir/reverse-shell-generator/Dockerfile" <<EOF
 FROM nginx:alpine
 COPY . /usr/share/nginx/html
 EOF
+		fi
+
+		info "构建 Docker 镜像 reverse_shell_generator..."
+		docker build -t reverse_shell_generator $web_tools_dir/reverse-shell-generator
+		if [ $? -ne 0 ]; then
+			error "镜像构建失败"
+			return 1
+		fi
+	else
+		info "镜像 reverse_shell_generator 已存在"
 	fi
 
-	info "构建 Docker 镜像 reverse_shell_generator..."
-	docker build -t reverse_shell_generator $web_tools_dir/reverse-shell-generator
-	if [ $? -ne 0 ]; then
-		error "镜像构建失败"
-		return 1
+	if docker ps -a --format "{{.Names}}" | grep -q "^reverse_shell_generator$"; then
+		port=$(docker inspect -f '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' reverse_shell_generator 2>/dev/null)
+
+		if docker ps --format "{{.Names}}" | grep -q "^reverse_shell_generator$"; then
+			info "容器 reverse_shell_generator 已在运行，访问地址：http://$(hostname -I | awk '{print $1}'):${port}/"
+			return 0
+		else
+			info "容器 reverse_shell_generator 存在但未运行，正在启动..."
+			docker start reverse_shell_generator >/dev/null
+			info "容器已启动，访问地址：http://$(hostname -I | awk '{print $1}'):${port}/"
+			return 0
+		fi
 	fi
 
 	read -p "[?] 是否启动容器？(y/n): " confirm
 	if [[ "$confirm" =~ ^[Yy]$ ]]; then
-		read -p "[?] 请输入映射到容器的端口（默认 80）: " port
-		port=${port:-80}
+		read -p "[?] 请输入映射到容器的端口（默认 8001）: " port
+		port=${port:-8001}
 		info "启动容器，映射端口 $port ..."
-		docker run -d -p "$port":80 reverse_shell_generator
+		docker run -d -p "$port":80 --name reverse_shell_generator --restart=unless-stopped reverse_shell_generator
 		if [ $? -eq 0 ]; then
-			info "容器已启动，访问地址：http://localhost:$port/"
+			info "容器已启动，访问地址：http://$(hostname -I | awk '{print $1}'):$port/"
+		else
+			error "容器启动失败"
+		fi
+	else
+		warn "用户选择不启动容器"
+	fi
+}
+
+function install_web_gtfobins() {
+	if ! command -v docker &>/dev/null; then
+		info "Docker 未安装，开始安装..."
+		install_docker
+	else
+		info "Docker 已安装"
+	fi
+
+	if ! docker images --format "{{.Repository}}" | grep -q "^gtfobins$"; then
+		if [ ! -f "$web_tools_dir/gtfobins/Dockerfile" ]; then
+			info "下载 GTFOBins Dockerfile..."
+			mkdir -p "$web_tools_dir/gtfobins"
+			curl -fsSL https://raw.githubusercontent.com/dr0n1/GTFOBins-docker/refs/heads/main/Dockerfile -o "$web_tools_dir/gtfobins/Dockerfile"
+			if [ $? -ne 0 ]; then
+				error "下载 Dockerfile 失败"
+				return 1
+			fi
+		fi
+
+		info "构建 Docker 镜像 gtfobins..."
+		docker build -t gtfobins "$web_tools_dir/gtfobins"
+		if [ $? -ne 0 ]; then
+			error "镜像构建失败"
+			return 1
+		fi
+	else
+		info "镜像 gtfobins 已存在"
+	fi
+
+	if docker ps -a --format "{{.Names}}" | grep -q "^gtfobins$"; then
+		port=$(docker inspect -f '{{ (index (index .NetworkSettings.Ports "4000/tcp") 0).HostPort }}' gtfobins 2>/dev/null)
+
+		if docker ps --format "{{.Names}}" | grep -q "^gtfobins$"; then
+			info "容器 gtfobins 已在运行，访问地址：http://$(hostname -I | awk '{print $1}'):${port}/"
+			return 0
+		else
+			info "容器 gtfobins 存在但未运行，正在启动..."
+			docker start gtfobins >/dev/null
+			info "容器已启动，访问地址：http://$(hostname -I | awk '{print $1}'):${port}/"
+			return 0
+		fi
+	fi
+
+	read -p "[?] 是否启动容器？(y/n): " confirm
+	if [[ "$confirm" =~ ^[Yy]$ ]]; then
+		read -p "[?] 请输入映射到容器的端口（默认 8002）: " port
+		port=${port:-8002}
+		info "启动容器，映射端口 $port ..."
+		docker run -d -p "$port":4000 --name gtfobins --restart=unless-stopped gtfobins
+		if [ $? -eq 0 ]; then
+			info "容器已启动，访问地址：http://$(hostname -I | awk '{print $1}'):$port/"
 		else
 			error "容器启动失败"
 		fi
